@@ -86,7 +86,6 @@ class StreamActivity : AppCompatActivity() {
     private var currentTopInset = 0
     private var currentBottomInset = 0
 
-    private var currentTofMode: Int = 8
 
     @Volatile private var latestImuData: FloatArray? = null
     @Volatile private var lastImuReceivedAt: Long = 0L
@@ -220,9 +219,7 @@ class StreamActivity : AppCompatActivity() {
         setupBadgeSwipeGesture()
         setupClickListeners()
 
-        currentTofMode = loadTofMode()
-        tofGridRenderer.initializeGrid(currentTofMode)
-        updateTofModeButtons(currentTofMode)
+        tofGridRenderer.initializeGrid()
         showStreamStateSafe(StreamState.CONNECTING)
 
         requestNotificationPermission()
@@ -340,14 +337,6 @@ class StreamActivity : AppCompatActivity() {
             if (!isDestroyed && !isFinishing) konfirmasiAkhiriProses()
         }
 
-        binding.btnTof8x8.setOnClickListener {
-            if (currentTofMode == 8) return@setOnClickListener
-            switchTofMode(8)
-        }
-        binding.btnTof4x4.setOnClickListener {
-            if (currentTofMode == 4) return@setOnClickListener
-            switchTofMode(4)
-        }
 
         binding.btnModeDataset.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked && Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
@@ -416,10 +405,6 @@ class StreamActivity : AppCompatActivity() {
                         startCollectingFrames()
                         startCollectingSensors()
 
-                        if (currentTofMode != 8) {
-                            streamService?.sendTofModeCommand(currentTofMode)
-                            android.util.Log.d("StreamActivity", "Resent TOF mode ${currentTofMode}x${currentTofMode} after reconnect")
-                        }
                     }
                     StreamService.ConnectionState.CONNECTING -> {
                         hideBadgeSafe()
@@ -574,13 +559,7 @@ class StreamActivity : AppCompatActivity() {
                 if (::tofGridRenderer.isInitialized) {
                     val currentSize = tofGridRenderer.getGridSize()
                     if (tofData.size != currentSize) {
-                        val detectedMode = if (tofData.size == 16) 4 else 8
-                        if (currentTofMode != detectedMode) {
-                            currentTofMode = detectedMode
-                            saveTofMode(detectedMode)
-                            tofGridRenderer.rebuildGrid(detectedMode)
-                            updateTofModeButtons(detectedMode)
-                        }
+                        val detectedMode = 8
                     } else {
                         cachedTofGridSize = currentSize
                     }
@@ -594,14 +573,12 @@ class StreamActivity : AppCompatActivity() {
         val localHoldover = if (prevHoldover == null || prevHoldover.size != tofData.size) IntArray(tofData.size) { HOLDOVER_FRAMES } else prevHoldover
 
         val alpha = 0.3f
-        val mode = currentTofMode
 
         withContext(Dispatchers.Main) {
             if (!isDestroyed && !isFinishing && !isAkhiring && ::tofGridRenderer.isInitialized) {
                 tofGridRenderer.updateGrid(
                     tofData = tofData,
-                    mode = mode,
-                    smoothed = localSmoothed,
+                                        smoothed = localSmoothed,
                     holdover = localHoldover,
                     alpha = alpha
                 )
@@ -638,11 +615,11 @@ class StreamActivity : AppCompatActivity() {
         }
 
         if (::ttsAlertManager.isInitialized) {
-            val wallDetected = SpatialMappingUtils.isWall(tofData, currentTofMode, thetaDeg)
+            val wallDetected = SpatialMappingUtils.isWall(tofData, thetaDeg)
             var genericObstacleDistance = Int.MAX_VALUE
-            val centerCols = SpatialMappingUtils.centerColumns(currentTofMode)
+            val centerCols = SpatialMappingUtils.centerColumns()
             for (c in centerCols) {
-                val d = TofDepthEstimator.calculate(tofData, c, thetaDeg, currentTofMode)
+                val d = TofDepthEstimator.calculate(tofData, c, thetaDeg)
                 if (d < genericObstacleDistance) {
                     genericObstacleDistance = d
                 }
@@ -897,59 +874,6 @@ class StreamActivity : AppCompatActivity() {
         data class ERROR(val message: String) : StreamState()
     }
 
-    /** Mengirim perintah ke hardware untuk mengganti resolusi matriks ToF. */
-    private fun switchTofMode(resolution: Int) {
-        if (isDestroyed || isFinishing) return
-        currentTofMode = resolution
-        saveTofMode(resolution)
-
-        streamService?.sendTofModeCommand(resolution)
-
-        tofGridRenderer.rebuildGrid(resolution)
-        updateTofModeButtons(resolution)
-        Toast.makeText(this,
-            "Mode ToF: ${resolution}x${resolution}" +
-            if (resolution == 4) " — SNR lebih baik" else "",
-            Toast.LENGTH_SHORT).show()
-    }
-
-    /** Menyimpan status mode ToF terakhir ke dalam Session/Preferences. */
-    private fun saveTofMode(mode: Int) {
-        runCatching {
-            getSharedPreferences("vnetra_prefs", android.content.Context.MODE_PRIVATE)
-                .edit().putInt("tof_mode", mode).apply()
-        }
-    }
-
-    /** Memuat status mode ToF yang tersimpan saat aplikasi dibuka. */
-    private fun loadTofMode(): Int {
-        return runCatching {
-            getSharedPreferences("vnetra_prefs", android.content.Context.MODE_PRIVATE)
-                .getInt("tof_mode", 8)
-        }.getOrDefault(8)
-    }
-
-    /** Memperbarui state visual tombol resolusi ToF sesuai mode aktif. */
-    private fun updateTofModeButtons(activeMode: Int) {
-        if (isDestroyed || isFinishing) return
-        runCatching {
-            if (activeMode == 8) {
-                binding.btnTof8x8.setTextColor(android.graphics.Color.WHITE)
-                binding.btnTof8x8.backgroundTintList =
-                    android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#1565C0"))
-                binding.btnTof4x4.setTextColor(android.graphics.Color.parseColor("#90A4AE"))
-                binding.btnTof4x4.backgroundTintList =
-                    android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#263238"))
-            } else {
-                binding.btnTof4x4.setTextColor(android.graphics.Color.WHITE)
-                binding.btnTof4x4.backgroundTintList =
-                    android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#1565C0"))
-                binding.btnTof8x8.setTextColor(android.graphics.Color.parseColor("#90A4AE"))
-                binding.btnTof8x8.backgroundTintList =
-                    android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#263238"))
-            }
-        }
-    }
 
     /** Menyesuaikan margin UI bagian atas agar tidak tertutup notch/kamera. */
     private fun updateUpperViewsMargins() {

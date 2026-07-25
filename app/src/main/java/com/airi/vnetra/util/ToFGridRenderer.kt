@@ -33,26 +33,26 @@ class ToFGridRenderer(
     fun getGridSize(): Int = tofViews.size
 
     /** Menginisialisasi pembuatan kotak-kotak sel visual pada layar UI. */
-    fun initializeGrid(resolution: Int) {
-        rebuildGrid(resolution)
+    fun initializeGrid() {
+        rebuildGrid()
     }
 
     /** Menyusun ulang kotak-kotak sel visual UI berdasarkan resolusi terbaru. */
-    fun rebuildGrid(resolution: Int) {
-        val numCells = resolution * resolution
-        val textSizeSp = if (resolution == 4) 11f else 7.5f
+    fun rebuildGrid() {
+        val numCells = 64
+        val textSizeSp = 7.5f
         currentTexts = Array(numCells) { "—" }
         currentColors = IntArray(numCells) { colorInvalidCell }
 
         gridLayout.removeAllViews()
-        gridLayout.columnCount = resolution
-        gridLayout.rowCount = resolution
+        gridLayout.columnCount = 8
+        gridLayout.rowCount = 8
 
         gridLayout.setBackgroundColor(Color.parseColor("#20000000"))
 
         tofViews = Array(numCells) { i ->
-            val row = i / resolution
-            val col = i % resolution
+            val row = i / 8
+            val col = i % 8
             TextView(context).apply {
                 layoutParams = GridLayout.LayoutParams(
                     GridLayout.spec(row, 1f),
@@ -79,7 +79,6 @@ class ToFGridRenderer(
     /** Memperbarui warna dan teks pada setiap sel UI berdasarkan data jarak ToF terbaru. */
     fun updateGrid(
         tofData: IntArray,
-        mode: Int,
         smoothed: FloatArray,
         holdover: IntArray,
         alpha: Float = 0.3f

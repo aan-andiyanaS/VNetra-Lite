@@ -133,10 +133,7 @@ static const uint32_t    IMU_WARMUP_FRAMES = 100;  // 100 × 50ms = 5 detik
 static const float       DEG2RAD_F = 0.01745329252f;  // π/180, lebih portabel dari M_PI
 
 // ======== TOF RESOLUTION MODE ========
-// Resolusi aktif VL53L5CX: 8 (mode 8x8, 64 cell) atau 4 (mode 4x4, 16 cell)
-// Diubah via WebSocket command: SET_TOF_MODE:4 / SET_TOF_MODE:8
-volatile uint8_t tofResolution = 4;           // Awalnya 4x4 untuk kecepatan
-volatile bool tofModeChangePending = false;   // Flag untuk meminta perubahan resolusi di thread TOF
+// Resolusi aktif VL53L5CX: Statically set to 8x8 (64 cell)
 
 // ======== DEKLARASI FUNGSI ========— GPIO 0 (BOOT) ========
 #define RESET_BUTTON_PIN 0
@@ -397,18 +394,6 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
                 if (cmd.startsWith("PING:")) {
                     String pongReply = "PONG:" + cmd.substring(5);
                     client->text(pongReply);
-                } else if (cmd == "SET_TOF_MODE:4") {
-                    if (tofResolution != 4) {
-                        tofResolution = 4;
-                        tofModeChangePending = true;
-                        Serial.println("[TOF] Mode change requested -> 4x4");
-                    }
-                } else if (cmd == "SET_TOF_MODE:8") {
-                    if (tofResolution != 8) {
-                        tofResolution = 8;
-                        tofModeChangePending = true;
-                        Serial.println("[TOF] Mode change requested -> 8x8");
-                    }
                 } else if (cmd == "CALIBRATE_IMU") {
                     triggerImuCalibration();
                 }
@@ -916,57 +901,8 @@ void IMU_Task(void *pvParameters) {
 void TOF_Task(void *pvParameters) {
   for (;;) {
     // ── Handle mode change request ──────────────────────────────────────────
-    if (tofModeChangePending) {
-      tofModeChangePending = false;
-      uint8_t newRes = tofResolution; // snapshot
-      Serial.printf("[TOF] Applying mode change → %dx%d\n", newRes, newRes);
-      if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
-        myImager.stopRanging();
-        vTaskDelay(pdMS_TO_TICKS(100)); // Tunggu sensor settle setelah stopRanging
-        Wire.setClock(100000);           // Turunkan clock I2C untuk config ulang
-        myImager.setResolution(newRes * newRes);
-        // Frequency & Integration Time:
-        // Kembali ke nilai default SparkFun yang STABIL.
-        // Menurunkan Hz atau menaikkan integration time menyebabkan I2C mutex
-        // terblokir terlalu lama → IMU Task tertunda → seluruh pipeline lag.
-        //
-        // CARA KERJA I2C CONTENTION:
-        //   IMU_Task  : butuh mutex setiap 5ms (200Hz)
-        //   TOF_Task  : butuh mutex setiap isDataReady() check = setiap 10ms
-        //   Integration time 80ms pada 8Hz → sensor "sibuk" 64% cycle time
-        //   → IMU_Task terpaksa menunggu → Mahony tertunda → WebSocket queue menumpuk
-        //
-        // Default aman: 4x4=15Hz, 8x8=10Hz, integration time minimal (auto)
-        myImager.setRangingFrequency(newRes == 4 ? 15 : 10);
-        // Integration time: nilai yang lebih rendah (misal 20/30) dapat mencegah over-saturasi SPAD di bawah sinar matahari (Outdoor).
-        // Default aman: 4x4=30ms, 8x8=50ms. Dioptimalkan untuk outdoor: 4x4=20ms, 8x8=30ms.
-        myImager.setIntegrationTime(newRes == 4 ? 20 : 30);
-        // Ubah urutan target ke STRONGEST untuk mengabaikan ghost object akibat noise cahaya matahari
-        myImager.setTargetOrder(SF_VL53L5CX_TARGET_ORDER::STRONGEST);
-        
-        Wire.setClock(400000);           // Kembalikan ke fast I2C
-        myImager.startRanging();
-        xSemaphoreGive(i2c_mutex);
-      }
-      Serial.printf("[TOF] Mode %dx%d aktif.\n", newRes, newRes);
-    }
-
-    bool dataReady = false;
-    if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
-      dataReady = myImager.isDataReady();
-      xSemaphoreGive(i2c_mutex);
-    }
-
-    if (dataReady) {
-      bool gotData = false;
-      if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
-        gotData = myImager.getRangingData(&measurementData);
-        xSemaphoreGive(i2c_mutex);
-      }
-
-      if (gotData && udpClientReady && !powerSaveMode) {
-        uint8_t  curRes   = tofResolution;           // snapshot untuk konsistensi
-        uint16_t numCells = (uint16_t)curRes * curRes; // 16 (4x4) atau 64 (8x8)
+    if (gotData && udpClientReady && !powerSaveMode) {
+        uint16_t numCells = 64; // Statically 8x8
         uint16_t distSize = numCells * 2;             // int16_t per cell
         uint16_t statSize = numCells;                 // 1 byte status per cell
         uint16_t totalSize = 1 + 8 + 1 + distSize + statSize;
@@ -1033,27 +969,8 @@ void TOF_Task(void *pvParameters) {
       }
 
       if (gotData) {
-        // Auto-Switch logic: hitung rata-rata ambient noise (cahaya luar ruangan)
-        uint32_t ambient_sum = 0;
-        uint16_t active_cells = tofResolution * tofResolution;
-        for (uint16_t ci = 0; ci < active_cells; ci++) {
-          ambient_sum += measurementData.ambient_per_spad[ci];
+        // Auto-Switch logic removed. Statically 8x8.
         }
-        float ambient_avg = (float)ambient_sum / active_cells;
-
-        const float THRESHOLD_HIGH = 120.0f; // Batas atas (terik matahari) -> 4x4
-        const float THRESHOLD_LOW = 50.0f;   // Batas bawah (indoor/teduh) -> 8x8
-
-        if (ambient_avg > THRESHOLD_HIGH && tofResolution == 8) {
-          tofResolution = 4;
-          tofModeChangePending = true;
-          Serial.printf("[TOF] Auto-Switch: Ambient tinggi (%.2f kcps/spad) -> Pindah ke 4x4\n", ambient_avg);
-        } else if (ambient_avg < THRESHOLD_LOW && tofResolution == 4) {
-          tofResolution = 8;
-          tofModeChangePending = true;
-          Serial.printf("[TOF] Auto-Switch: Ambient rendah (%.2f kcps/spad) -> Pindah ke 8x8\n", ambient_avg);
-        }
-      }
     }
     vTaskDelay(pdMS_TO_TICKS(10));
   }
@@ -1134,23 +1051,23 @@ void TOF_InitTask(void* pvParams) {
         if (ok) {
             Wire.setClock(400000);
             myImager.setWireMaxPacketSize(128);
-            myImager.setResolution(tofResolution * tofResolution); // gunakan mode yang dipilih
+            myImager.setResolution(64); // Statically 8x8
 
             // Frequency & Integration Time:
             // Kembali ke nilai default yang STABIL (tidak memblok I2C mutex).
             // Lihat komentar di mode change handler untuk penjelasan lengkap.
-            myImager.setRangingFrequency(tofResolution == 4 ? 15 : 10);
+            myImager.setRangingFrequency(10);
             // Integration time: diturunkan agar lebih tahan terhadap saturasi inframerah dari sinar matahari.
             // Dioptimalkan untuk outdoor: 4x4=20ms, 8x8=30ms.
-            myImager.setIntegrationTime(tofResolution == 4 ? 20 : 30);
+            myImager.setIntegrationTime(30);
             // Ubah urutan target ke STRONGEST untuk mengabaikan ghost object akibat noise cahaya matahari
             myImager.setTargetOrder(SF_VL53L5CX_TARGET_ORDER::STRONGEST);
 
             myImager.startRanging();
             Serial.printf("[TOF] Init: %dx%d, Freq=%dHz, IntTime=%dms\n",
-                          tofResolution, tofResolution,
-                          (tofResolution == 4 ? 15 : 10),
-                          (tofResolution == 4 ? 20 : 30));
+                          8, 8,
+                          10,
+                          30);
         }
         xSemaphoreGive(i2c_mutex);
 

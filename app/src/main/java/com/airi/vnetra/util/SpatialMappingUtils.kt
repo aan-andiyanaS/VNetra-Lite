@@ -98,10 +98,7 @@ object SpatialMappingUtils {
     }
 
     /** Menentukan kolom-kolom bagian tengah (titik fokus) sesuai resolusi aktif. */
-    fun centerColumns(resolution: Int): List<Int> = when (resolution) {
-        4    -> listOf(1, 2)
-        else -> listOf(3, 4)
-    }
+    fun centerColumns(): List<Int> = listOf(3, 4)
 
     /** Mengecek apakah sebuah titik koordinat berada di dalam area deteksi ToF. */
     fun isInTofZone(xc: Float): Boolean =
@@ -111,8 +108,8 @@ object SpatialMappingUtils {
      * Menganalisis matriks ToF untuk menentukan keberadaan rintangan datar (tembok). 
      * Dilengkapi kompensasi kemiringan kepala (Pitch-Aware) agar lantai tidak dikira tembok saat menunduk.
      */
-    fun isWall(tofData: IntArray, resolution: Int, thetaDeg: Float): Boolean {
-        val size = resolution * resolution
+    fun isWall(tofData: IntArray, thetaDeg: Float): Boolean {
+        val size = 64
         if (tofData.size != size) return false
 
         // Jika menunduk tajam (melihat ke tanah), toleransi kerataan diperketat

@@ -22,29 +22,28 @@ object TofDepthEstimator {
     fun calculate(
         tofData: IntArray,
         j: Int,
-        thetaDeg: Float,
-        resolution: Int = 8
+        thetaDeg: Float
     ): Int {
 
-        if (j < 0 || j >= resolution) return D_MAX
+        if (j < 0 || j >= 8) return D_MAX
 
-        val deltaTheta = TOF_FOV_V / resolution
-        val centerRow  = (resolution - 1) / 2.0f
+        val deltaTheta = TOF_FOV_V / 8
+        val centerRow  = 7 / 2.0f
         val totalPitch = thetaDeg + MOUNT_PITCH_DEG
         val rCenter = (centerRow + totalPitch / deltaTheta)
             .roundToInt()
-            .coerceIn(0, resolution - 1)
+            .coerceIn(0, 7)
 
         val rows = listOf(
-            (rCenter - 1).coerceIn(0, resolution - 1),
+            (rCenter - 1).coerceIn(0, 7),
             rCenter,
-            (rCenter + 1).coerceIn(0, resolution - 1)
+            (rCenter + 1).coerceIn(0, 7)
         ).distinct()
 
         var sum   = 0
         var count = 0
         for (r in rows) {
-            val idx = r * resolution + j
+            val idx = r * 8 + j
             if (idx < 0 || idx >= tofData.size) continue
             val z = tofData[idx]
 
