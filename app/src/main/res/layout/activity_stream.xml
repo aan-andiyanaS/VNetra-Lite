@@ -243,7 +243,7 @@
             android:textColor="#FFFFFF"
             android:textSize="10sp"
             android:fontFamily="monospace"
-            android:text="=== SYSTEM PING MONITOR ===\nCam Decode : 0 ms\nWebSocket  : 0 ms\nToF Total  : 0 ms\n---------------------------\n► MAX BOTTLENECK : 0 ms\n\n[Sequential ToF Details]\n├─ Smoothing : 0 ms\n├─ Formula E/H : 0 ms\n└─ Terrain J : 0 ms\n===========================" />
+            android:text="=== LATENCY MONITOR (SKRIPSI) ===\nSensor Hardware   : 0 ms\nSerial Transmisi  : 0 ms\nAlgoritma Spasial : 0 ms\nSintesis TTS      : 0 ms\nEarphone Bluetooth: null\n---------------------------------\n► PING TOTAL      : 0 ms\n=================================" />
     </LinearLayout>
 
     <!-- Overlay: Status + Controls (bottom) -->

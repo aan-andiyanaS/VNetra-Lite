@@ -94,14 +94,12 @@ class StreamActivity : AppCompatActivity() {
     private val safeImuData: FloatArray?
         get() = if (System.currentTimeMillis() - lastImuReceivedAt > 200L) null else latestImuData
 
-    @Volatile private var pingSensor:     Long = 0
-    @Volatile private var pingTofSmooth:  Long = 0
-    @Volatile private var pingFormulaEH:  Long = 0
-    @Volatile private var pingTotalTof:   Long = 0
-    @Volatile private var pingWebsocket:  Long = -1L
+    @Volatile private var pingHardware: Long = 0
+    @Volatile private var pingSerialTransmisi: Long = 0
+    @Volatile private var pingAlgoritma: Long = 0
+    @Volatile private var pingTts: Long = 0
 
     private var latencyMonitorJob: Job? = null
-    private var pingWebsocketJob: Job? = null
     private var muteToggleJob: Job? = null
 
     private lateinit var ttsAlertManager: TtsAlertManager
@@ -439,14 +437,12 @@ class StreamActivity : AppCompatActivity() {
         imuCollectJob?.cancel()
         tofCollectJob?.cancel()
         latencyMonitorJob?.cancel()
-        pingWebsocketJob?.cancel()
         muteToggleJob?.cancel()
 
-        pingSensor = 0
-        pingTofSmooth = 0
-        pingFormulaEH = 0
-        pingTotalTof = 0
-        pingWebsocket = -1L
+        pingHardware = 0
+        pingSerialTransmisi = 0
+        pingAlgoritma = 0
+        pingTts = 0
 
         latencyMonitorJob = lifecycleScope.launch {
             while (isActive) {
@@ -455,17 +451,7 @@ class StreamActivity : AppCompatActivity() {
             }
         }
 
-        pingWebsocketJob = lifecycleScope.launch(Dispatchers.Default) {
-            try {
-                svc.pingWebsocketFlow.collect { ping ->
-                    pingWebsocket = ping
-                }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("StreamActivity", "Ping WS collect error", e)
-            }
-        }
+
 
         muteToggleJob = lifecycleScope.launch(Dispatchers.Default) {
             try {
@@ -552,7 +538,7 @@ class StreamActivity : AppCompatActivity() {
         prevSmoothed: FloatArray?,
         prevHoldover: IntArray?
     ): Pair<FloatArray, IntArray> {
-        val startSmooth = System.currentTimeMillis()
+
 
         if (cachedTofGridSize == 0 || tofData.size != cachedTofGridSize) {
             withContext(Dispatchers.Main) {
@@ -565,7 +551,7 @@ class StreamActivity : AppCompatActivity() {
                     }
                 }
             }
-            pingTofSmooth = System.currentTimeMillis() - startSmooth
+
             if (cachedTofGridSize == 0) return Pair(FloatArray(0), IntArray(0))
         }
 
@@ -584,7 +570,7 @@ class StreamActivity : AppCompatActivity() {
                 )
             }
         }
-        pingTofSmooth = System.currentTimeMillis() - startSmooth
+
 
         evaluateObstacles(tofData)
         return Pair(localSmoothed, localHoldover)
@@ -599,7 +585,7 @@ class StreamActivity : AppCompatActivity() {
         val rawTheta = imuSnap?.getOrElse(0) { 0f } ?: 0f
         val thetaDeg = rawTheta - 20f
 
-        val startFormula = System.currentTimeMillis()
+        val startAlgo = System.currentTimeMillis()
         var closeThreatExists = false
         var allClear = true
 
@@ -662,8 +648,7 @@ class StreamActivity : AppCompatActivity() {
                 isBlockedState = false
             }
         }
-        pingFormulaEH = System.currentTimeMillis() - startFormula
-        pingTotalTof = pingTofSmooth + pingFormulaEH
+        pingAlgoritma = System.currentTimeMillis() - startAlgo
     }
 
     /** Menghitung dan memperbarui indikator kecepatan data (FPS) pada UI. */
@@ -775,32 +760,39 @@ class StreamActivity : AppCompatActivity() {
         runCatching { imuCollectJob?.cancel() };     imuCollectJob     = null
         runCatching { tofCollectJob?.cancel() };     tofCollectJob     = null
         runCatching { latencyMonitorJob?.cancel() }; latencyMonitorJob = null
-        runCatching { pingWebsocketJob?.cancel() };  pingWebsocketJob  = null
         runCatching { muteToggleJob?.cancel() };     muteToggleJob     = null
     }
 
     /** Memperbarui UI monitor latensi dan bottleneck. */
     private fun updateLatencyMonitorUi() {
         if (isDestroyed || isFinishing) return
-        val cam = pingSensor
-        val ws = if (pingWebsocket >= 0) "$pingWebsocket" else "?"
-        val tofTotal = pingTotalTof
-        val smooth = pingTofSmooth
-        val formula = pingFormulaEH
-        val maxBottleneck = maxOf(cam, tofTotal)
+        
+        val hardware = pingHardware
+        val serial = pingSerialTransmisi
+        val algo = pingAlgoritma
+        val tts = pingTts
+        
+        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        val hasBluetooth = audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
+            it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        }
+        
+        val btLatency = if (hasBluetooth) 150L else 0L
+        val btValue = if (hasBluetooth) "$btLatency ms" else "null"
+        
+        val totalPing = hardware + serial + algo + tts + btLatency
 
         val text = """
-            === SYSTEM PING MONITOR ===
-            [Parallel Processing]
-            Sensor Data : $cam ms
-            WebSocket  : $ws ms
-            ToF Total  : $tofTotal ms
-            ---------------------------
-            ► MAX BOTTLENECK : $maxBottleneck ms
-            [Sequential ToF Details]
-            ├─ Smoothing : $smooth ms
-            └─ Formula E/H : $formula ms
-            ===========================
+            === LATENCY MONITOR (SKRIPSI) ===
+            Sensor Hardware   : $hardware ms
+            Serial Transmisi  : $serial ms
+            Algoritma Spasial : $algo ms
+            Sintesis TTS      : $tts ms
+            Earphone Bluetooth: $btValue
+            ---------------------------------
+            ► PING TOTAL      : $totalPing ms
+            =================================
         """.trimIndent()
         runCatching {
             binding.tvLatencyMonitor.text = text
@@ -818,10 +810,10 @@ class StreamActivity : AppCompatActivity() {
         isBlockedState = false
         initialYawOffset = null
 
-        pingSensor = 0
-        pingTofSmooth = 0
-        pingFormulaEH = 0
-        pingTotalTof = 0
+        pingHardware = 0
+        pingSerialTransmisi = 0
+        pingAlgoritma = 0
+        pingTts = 0
 
         runOnUiThread {
             runCatching {
