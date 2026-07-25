@@ -1,31 +1,32 @@
 ---
 title: "Refactor: Massive Cleanup of YOLO/Camera & Code Quality Improvements"
-labels: ["refactor", "bug", "documentation"]
+labels: ["refactor", "bug", "documentation", "architecture"]
 ---
 
-## Deskripsi Perubahan
-Terjadi perubahan arsitektur besar-besaran (Refactoring) pada aplikasi VNetra-Lite yang mengubah aplikasi ini menjadi murni pengolah fusi sensor (ToF & IMU) dan peringatan TTS, menghapus seluruh dependensi visual/kamera berat.
+# Architecture Decision & Refactoring Report
 
-### 🧹 Apa yang Dihapus?
-1. **Penghapusan Fitur Kamera & YOLO:** Seluruh file logika yang berkaitan dengan kamera, deteksi objek visual (`YoloDetector.kt`), dan *Overlay* (`BoundingBoxOverlay.kt`) telah dihapus.
-2. **Pembersihan Log:** Menghapus dokumen analisis usang (`logcat_full.txt`, `yolo_log.txt`, notebook Jupyter).
+## Context (Konteks & Latar Belakang)
+Aplikasi VNetra-Lite pada awalnya dikembangkan dengan menyertakan modul kamera dan deteksi objek visual berbasis model YOLO (`YoloDetector.kt`). Namun, seiring berjalannya proyek, fokus utama sistem bergeser sepenuhnya pada pengolahan fusi sensor perangkat keras (ToF VL53L5CX dan IMU MPU6050) untuk mendeteksi rintangan spasial. Keberadaan modul kamera/YOLO membebani CPU, meningkatkan kompleksitas kode (seperti di dalam `CameraStreamActivity`), dan berpotensi memicu *crash* akibat beban memori tinggi, padahal fitur visual tersebut sudah tidak digunakan lagi (Dead Code). 
 
-### 🔄 Apa yang Diubah/Diganti Nama?
-1. **Penamaan Ulang File Inti:**
-   - `CameraStreamService.kt` ➡️ `StreamService.kt`
-   - `CameraStreamActivity.kt` ➡️ `StreamActivity.kt`
-   - `activity_camera_stream.xml` ➡️ `activity_stream.xml`
-2. Menyesuaikan *Intent* dan pustaka *ViewBinding* di `MainActivity.kt` dan `DeviceConfigActivity.kt` agar mengarah ke penamaan baru.
+Selain itu, berdasarkan hasil audit *Static Analysis (Lint)* dan tinjauan *Clean Code*:
+- Terdapat penggunaan *Not-Null Assertion* (`!!`) yang berbahaya saat mengurai data sensor.
+- Terdapat pemanggilan pembacaan Bluetooth (`scanResult.device.name`) yang melanggar aturan izin ketat di Android 12+ (Missing Permissions).
 
-### ✨ Apa yang Ditambahkan/Diperbaiki?
-1. **Penyuntikan KDocs:** Dokumentasi (*KDocs*) standar Kotlin telah disuntikkan secara otomatis dan komprehensif ke *setiap* fungsi di seluruh *codebase* demi memenuhi standar penulisan akademis/skripsi.
-2. **Penambalan Keamanan (Security Patch):** Menambahkan verifikasi *MissingPermission* eksplisit (Android 12+) pada `MainActivity.kt` (Bluetooth Connect) sehingga aplikasi terhindar dari *SecurityException*.
-3. **Penambalan Stabilitas (NPE Patch):** Membersihkan penggunaan *Not-Null Assertion* (`!!`) yang berbahaya pada `StreamActivity`, `StreamService`, dan `DeviceConfigActivity`. Menggantinya dengan pembungkus *safe-unboxing* Kotlin (`?.let`, `?:`).
-4. **Pembersihan Arsitektur:** Menghapus *dead-code* berupa parameter `ttsAlertManager` yang disuntik namun tidak terpakai di `NavigationCoordinator.kt`.
+## Decision (Keputusan)
+1. **Pemusnahan Modul Kamera/ML:** Menghapus seluruh logika, dependensi, *layout*, dan berkas log yang berkaitan dengan kamera dan YOLO secara permanen.
+2. **Penyederhanaan Arsitektur:** Mengubah nama kelas-kelas utama agar mencerminkan tujuan spesifiknya saat ini (contoh: `CameraStreamActivity.kt` ➡️ `StreamActivity.kt`).
+3. **Penerapan DDD (Doubt-Driven Development) untuk Bug Fixes:** 
+   - Menambahkan pembungkus *safe-unboxing* (`?.let`, `?:`) menggantikan paksaan `!!`.
+   - Mengimplementasikan `hasBleConnectPermission()` untuk memvalidasi keamanan Bluetooth sebelum mengakses perangkat, menambal celah *SecurityException*.
+4. **Pemenuhan Syarat Akademis:** Menyuntikkan KDocs standar pada setiap fungsi secara otomatis menggunakan skrip pemrosesan agar memenuhi standar dokumentasi penulisan skripsi.
 
-## Hasil Audit & Verifikasi
-- Aplikasi berhasil dikompilasi (`./gradlew assembleDebug`) 100%.
-- Lolos dari peringatan fatal Lint (`./gradlew lintDebug`).
-- Aplikasi jauh lebih ringan dan hemat sumber daya (CPU) akibat terhapusnya pustaka ML (Machine Learning).
+## Consequences (Konsekuensi)
+### Dampak Positif
+- **Performa Maksimal:** Beban memori dan komputasi CPU turun drastis karena *Machine Learning* lokal tidak lagi dimuat ke dalam memori aplikasi.
+- **Stabilitas (Zero-Crash):** Menghindari *Force Close* tiba-tiba di berbagai perangkat Android modern (12/13/14) akibat hak akses Bluetooth dan data null sesaat pada jaringan *socket*.
+- **Keterbacaan (Clean Code):** Basis kode (*codebase*) menyusut puluhan ribu baris (lebih dari 10.000 baris kode lawas dihapus), menjadikannya lebih mudah dirawat dan dinavigasi oleh pengembang atau agen AI di masa depan.
+
+### Dampak Negatif / Trade-off
+- **God Class:** Kelas `StreamActivity` saat ini masih mengurus UI, pengumpulan *flow* (ToF & IMU), dan peringatan suara (TTS) sekaligus. Keputusan untuk memisahkannya (Refaktor MVP) ditunda agar fitur suara latar belakang TTS tidak terganggu oleh siklus hidup aplikasi (Lifecycle), namun hal ini menjadi target optimasi arsitektur di masa depan.
 
 Closes #
