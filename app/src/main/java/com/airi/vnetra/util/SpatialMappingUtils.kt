@@ -8,16 +8,19 @@ package com.airi.vnetra.util
  * tanpa referensi ke sistem penglihatan komputer (vision/camera).
  * Beroperasi murni pada data array jarak (mm) dengan grid 8x8.
  */
-
 object SpatialMappingUtils {
 
-    // Konstanta Deteksi Tembok (Clean Code)
-    const val WALL_MIN_DIST_MM = 30
-    const val WALL_MAX_DIST_MM = 1500
-    const val WALL_COVERAGE_RATIO = 0.60f
-    const val WALL_FLATNESS_TOLERANCE_MM = 300
-
     const val WALL_TRACKING_ID = 999
+    
+    // Threshold jarak untuk dianggap sebagai ancaman dekat (mm)
+    private const val CLOSE_DIST_MIN = 30
+    private const val CLOSE_DIST_MAX = 2000
+
+    data class ObstacleAnalysis(
+        val type: String,       // "tembok" atau "halangan"
+        val clockDirection: Int, // Arah jam (10, 11, 12, 1, 2)
+        val averageDistance: Int // Jarak rata-rata (mm)
+    )
 
     /** Mengonversi indeks kolom ToF (0..7) ke arah jam referensi spasial (10, 11, 12, 1, 2). */
     fun getColumnClockDirection(column: Int): Int = when (column) {
@@ -40,28 +43,79 @@ object SpatialMappingUtils {
     }
 
     /**
-     * Memeriksa apakah sensor ToF menangkap permukaan tembok/bidang datar (berdasarkan varians dan jangkauan minimum).
-     * Menggunakan kompensasi dinamis ketika kepala menunduk.
+     * Menganalisis grid ToF (64 elemen) untuk mencari "tembok" di tepi atau "halangan" berkelompok.
      */
-    fun isWall(tofData: IntArray, thetaDeg: Float): Boolean {
-        if (tofData.isEmpty()) return false
+    fun analyzeTerrain(tofData: IntArray, thetaDeg: Float): ObstacleAnalysis? {
+        if (tofData.size != 64) return null
 
-        val size = tofData.size
+        val closeCells = extractCloseCells(tofData, thetaDeg)
+        if (closeCells.isEmpty()) return null
+
+        val leftWallAnalysis = analyzeWallOnSide(closeCells, isLeftSide = true)
+        if (leftWallAnalysis != null) return leftWallAnalysis
+
+        val rightWallAnalysis = analyzeWallOnSide(closeCells, isLeftSide = false)
+        if (rightWallAnalysis != null) return rightWallAnalysis
+
+        // Jika bukan tembok tepi, anggap sebagai objek (blob)
+        return analyzeAsObject(closeCells)
+    }
+
+    private data class Cell(val row: Int, val col: Int, val dist: Int)
+
+    private fun extractCloseCells(tofData: IntArray, thetaDeg: Float): List<Cell> {
+        val cells = mutableListOf<Cell>()
+        for (i in 0..63) {
+            val dist = tofData[i]
+            // Validasi noise pantulan acak, pastikan sel yang diambil rasional
+            if (dist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
+                cells.add(Cell(row = i / 8, col = i % 8, dist = dist))
+            }
+        }
+        return cells
+    }
+
+    private fun analyzeWallOnSide(closeCells: List<Cell>, isLeftSide: Boolean): ObstacleAnalysis? {
+        // Tentukan batasan kolom untuk tepi
+        val edgeCols = if (isLeftSide) 0..2 else 5..7
         
-        val tolerance = if (thetaDeg > 15f) {
-            // Jika menunduk tajam (melihat ke tanah), toleransi kerataan diperketat
-            WALL_FLATNESS_TOLERANCE_MM / 2
+        // Saring sel yang berada di area tepi
+        val edgeCells = closeCells.filter { it.col in edgeCols }
+        if (edgeCells.isEmpty()) return null
+
+        // Syarat tembok: membentang secara vertikal minimal 4 baris di sisi ini
+        val distinctRows = edgeCells.map { it.row }.distinct()
+        if (distinctRows.size < 4) return null
+
+        // Tentukan kolom terluar sebagai referensi arah
+        val outermostCol = if (isLeftSide) {
+            edgeCells.minOf { it.col }
         } else {
-            WALL_FLATNESS_TOLERANCE_MM
+            edgeCells.maxOf { it.col }
         }
 
-        val nearValues = tofData.filter { it in WALL_MIN_DIST_MM..WALL_MAX_DIST_MM }
+        val avgDist = edgeCells.map { it.dist }.average().toInt()
+        val clockDir = getColumnClockDirection(outermostCol)
 
-        if (nearValues.size < size * WALL_COVERAGE_RATIO) return false
+        return ObstacleAnalysis(
+            type = "tembok",
+            clockDirection = clockDir,
+            averageDistance = avgDist
+        )
+    }
 
-        val min = nearValues.minOrNull() ?: return false
-        val max = nearValues.maxOrNull() ?: return false
+    private fun analyzeAsObject(closeCells: List<Cell>): ObstacleAnalysis {
+        // Hitung centroid (titik pusat) berdasarkan rata-rata kolom
+        val sumCol = closeCells.sumOf { it.col }
+        val centerCol = (sumCol.toFloat() / closeCells.size).toInt()
+        
+        val avgDist = closeCells.map { it.dist }.average().toInt()
+        val clockDir = getColumnClockDirection(centerCol)
 
-        return (max - min) <= tolerance
+        return ObstacleAnalysis(
+            type = "halangan",
+            clockDirection = clockDir,
+            averageDistance = avgDist
+        )
     }
 }

@@ -615,37 +615,14 @@ class StreamActivity : AppCompatActivity() {
         }
 
         if (::ttsAlertManager.isInitialized) {
-            val wallDetected = SpatialMappingUtils.isWall(tofData, thetaDeg)
-            var genericObstacleDistance = Int.MAX_VALUE
-            var closestCol = 3 // Default to center
+            val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData, thetaDeg)
 
-            // Loop through all 8 columns to find the closest obstacle
-            for (c in 0..7) {
-                val d = TofDepthEstimator.calculate(tofData, c, thetaDeg)
-                if (d < genericObstacleDistance) {
-                    genericObstacleDistance = d
-                    closestCol = c
-                }
-            }
-
-            if ((wallDetected || genericObstacleDistance < 2000)) {
-                val obstacleDist = if (wallDetected) {
-                    var sum = 0L
-                    var count = 0
-                    for (d in tofData) { if (d in 30..1500) { sum += d; count++ } }
-                    if (count > 0) (sum / count).toInt() else Int.MAX_VALUE
-                } else {
-                    genericObstacleDistance
-                }
-                
-                // Get the clock direction based on the column that detected the closest obstacle
-                val dynamicClockDirection = SpatialMappingUtils.getColumnClockDirection(closestCol)
-                
+            if (terrainAnalysis != null) {
                 val obstacleAlert = ttsAlertManager.process(
                     trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
-                    dObj = obstacleDist,
-                    clockDirection = dynamicClockDirection,
-                    objectLabel = if (wallDetected) "tembok" else "halangan",
+                    dObj = terrainAnalysis.averageDistance,
+                    clockDirection = terrainAnalysis.clockDirection,
+                    objectLabel = terrainAnalysis.type,
                     isMovingForward = isMovingForward,
                     imuData = imuSnap
                 )
@@ -654,10 +631,10 @@ class StreamActivity : AppCompatActivity() {
                 }
                 
                 val adaptiveT = if (isMovingForward) 1200 else 800
-                if (obstacleDist < adaptiveT) {
+                if (terrainAnalysis.averageDistance < adaptiveT) {
                     closeThreatExists = true
                 }
-                if (obstacleDist < adaptiveT + TtsAlertManager.EPS_CLEAR_ZONE) {
+                if (terrainAnalysis.averageDistance < adaptiveT + TtsAlertManager.EPS_CLEAR_ZONE) {
                     allClear = false
                 }
             } else {
