@@ -102,6 +102,79 @@ class StreamActivity : AppCompatActivity() {
     private var latencyMonitorJob: Job? = null
     private var muteToggleJob: Job? = null
 
+    /**
+     * LatencyLogger
+     *
+     * Mencatat seluruh nilai latensi ke Logcat dengan tag "LAT" setiap [LOG_INTERVAL_SEC] detik.
+     * Gunakan perintah berikut untuk mengekspor log selama pengujian skripsi:
+     *   adb logcat -s LAT > latency_sesi.txt
+     * Data yang dicatat: Sensor, Serial, Algoritma Spasial, TTS, Bluetooth, dan Total E2E.
+     */
+    private inner class LatencyLogger {
+        private val TAG = "LAT"
+        private val LOG_INTERVAL_MS = 5_000L
+
+        // Ring-buffer per metrik (maks 1000 sample per sesi)
+        private val bufHardware  = ArrayDeque<Long>(1000)
+        private val bufSerial    = ArrayDeque<Long>(1000)
+        private val bufAlgo      = ArrayDeque<Long>(1000)
+        private val bufTts       = ArrayDeque<Long>(1000)
+        private val bufBt        = ArrayDeque<Long>(1000)
+        private val bufTotal     = ArrayDeque<Long>(1000)
+
+        private var lastLogTime  = 0L
+        private var sampleCount  = 0
+
+        private val sessionStart = System.currentTimeMillis()
+
+        /** Dipanggil tiap frame — menyimpan sample latensi saat ini. */
+        fun record(hw: Long, serial: Long, algo: Long, tts: Long, bt: Long, total: Long) {
+            fun ArrayDeque<Long>.push(v: Long) { if (size >= 1000) removeFirst(); addLast(v) }
+            bufHardware.push(hw)
+            bufSerial.push(serial)
+            bufAlgo.push(algo)
+            bufTts.push(tts)
+            bufBt.push(bt)
+            bufTotal.push(total)
+            sampleCount++
+
+            val now = System.currentTimeMillis()
+            if (now - lastLogTime >= LOG_INTERVAL_MS) {
+                lastLogTime = now
+                flush()
+            }
+        }
+
+        /** Mencetak ringkasan statistik ke Logcat. */
+        fun flush() {
+            val elapsedSec = (System.currentTimeMillis() - sessionStart) / 1000
+            Log.i(TAG, "===== LATENCY LOG [T+${elapsedSec}s | N=$sampleCount] =====")
+            logStat("Sensor    ", bufHardware)
+            logStat("Serial    ", bufSerial)
+            logStat("Algoritma ", bufAlgo)
+            logStat("TTS       ", bufTts)
+            logStat("Bluetooth ", bufBt)
+            logStat("TOTAL E2E ", bufTotal)
+            Log.i(TAG, "========================================================")
+        }
+
+        private fun logStat(label: String, buf: ArrayDeque<Long>) {
+            if (buf.isEmpty()) return
+            val avg = buf.average().toLong()
+            val min = buf.min()
+            val max = buf.max()
+            Log.i(TAG, "  $label | avg=${avg}ms  min=${min}ms  max=${max}ms")
+        }
+
+        /** Cetak ringkasan final saat sesi berakhir. */
+        fun finalFlush() {
+            Log.i(TAG, "===== SESI BERAKHIR — RINGKASAN AKHIR =====")
+            flush()
+        }
+    }
+
+    private val latencyLogger = LatencyLogger()
+
     private lateinit var ttsAlertManager: TtsAlertManager
     @Volatile private var initialYawOffset: Float? = null
     private lateinit var navigationCoordinator: NavigationCoordinator
@@ -451,6 +524,30 @@ class StreamActivity : AppCompatActivity() {
             }
         }
 
+        // Log periodik setiap 5 detik ke Logcat (tag: LAT)
+        lifecycleScope.launch(Dispatchers.Default) {
+            while (isActive) {
+                kotlinx.coroutines.delay(200)
+                val hasBt = run {
+                    val am = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                    am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
+                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    }
+                }
+                val btVal = if (hasBt) 150L else 0L
+                val total = pingHardware + pingSerialTransmisi + pingAlgoritma + pingTts + btVal
+                latencyLogger.record(
+                    hw     = pingHardware,
+                    serial = pingSerialTransmisi,
+                    algo   = pingAlgoritma,
+                    tts    = pingTts,
+                    bt     = btVal,
+                    total  = total
+                )
+            }
+        }
+
 
 
         muteToggleJob = lifecycleScope.launch(Dispatchers.Default) {
@@ -682,6 +779,9 @@ class StreamActivity : AppCompatActivity() {
     private fun akhiriProses() {
         if (isAkhiring) return
         isAkhiring = true
+
+        // Cetak ringkasan akhir sesi ke Logcat sebelum aplikasi ditutup
+        latencyLogger.finalFlush()
 
         cancelAllJobs()
 
