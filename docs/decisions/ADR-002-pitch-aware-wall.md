@@ -1,4 +1,4 @@
-# ADR-046: Incremental Pitch-Aware Wall Detection & UI Cleanup
+# ADR-002: Incremental Pitch-Aware Wall Detection & UI Cleanup
 
 ## Status
 Accepted

@@ -1,4 +1,4 @@
-# ADR-047: Removal of 4x4 ToF Mode and Deprecated YOLO Components
+# ADR-003: Removal of 4x4 ToF Mode and Deprecated YOLO Components
 
 ## Status
 Accepted
