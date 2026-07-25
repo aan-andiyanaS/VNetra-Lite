@@ -1,48 +1,53 @@
 package com.airi.vnetra.util
 
+/**
+ * ToFGridRenderer
+ *
+ * Menggambar representasi visual matriks ToF di layar perangkat (UI).
+ * Menggunakan warna untuk membedakan zona aman dan bahaya berdasarkan jarak objek.
+ * Bertujuan sebagai alat debugging visual dan feedback bagi pendamping.
+ */
+
 import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
 import android.widget.GridLayout
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
-import com.airi.vnetra.model.DetectionResult
-
 class ToFGridRenderer(
     private val context: Context,
     private val gridLayout: GridLayout
 ) {
     private var tofViews: Array<TextView> = emptyArray()
-    // S=0.80, V=0.85: softer/pastel palette — lebih enak dilihat saat overlay di kamera
+
     private val hsvTemp = floatArrayOf(0f, 0.80f, 0.85f)
-    private val colorInvalidCell = Color.parseColor("#66444444") // Abu-abu semi transparan
-    
+    private val colorInvalidCell = Color.parseColor("#66444444")
     private var currentTexts: Array<String> = emptyArray()
     private var currentColors: IntArray = IntArray(0)
-    // Constant
+
     private val HOLDOVER_FRAMES = 5
     private val TOF_FOV_V = 45f
-    private val CAMERA_FOV_V = 41f
+    private val FOV_V = 41f
 
+    /** Mendapatkan jumlah keseluruhan sel yang membentuk matriks visual ToF. */
     fun getGridSize(): Int = tofViews.size
 
+    /** Menginisialisasi pembuatan kotak-kotak sel visual pada layar UI. */
     fun initializeGrid(resolution: Int) {
         rebuildGrid(resolution)
     }
 
+    /** Menyusun ulang kotak-kotak sel visual UI berdasarkan resolusi terbaru. */
     fun rebuildGrid(resolution: Int) {
         val numCells = resolution * resolution
         val textSizeSp = if (resolution == 4) 11f else 7.5f
-        
         currentTexts = Array(numCells) { "—" }
         currentColors = IntArray(numCells) { colorInvalidCell }
 
-        // Remove all views before changing dimensions
         gridLayout.removeAllViews()
         gridLayout.columnCount = resolution
         gridLayout.rowCount = resolution
-        
-        // Background gelap pada GridLayout → garis tepi antar-sel lebih halus (tidak putih menyilaukan)
+
         gridLayout.setBackgroundColor(Color.parseColor("#20000000"))
 
         tofViews = Array(numCells) { i ->
@@ -65,44 +70,23 @@ class ToFGridRenderer(
             }.also { gridLayout.addView(it) }
         }
 
-        // Adjust Y offset
-        val overlapFraction = (TOF_FOV_V - CAMERA_FOV_V) / 2f / TOF_FOV_V
+        val overlapFraction = (TOF_FOV_V - FOV_V) / 2f / TOF_FOV_V
         gridLayout.post {
             gridLayout.translationY = -(gridLayout.height.toFloat() * overlapFraction)
         }
     }
 
+    /** Memperbarui warna dan teks pada setiap sel UI berdasarkan data jarak ToF terbaru. */
     fun updateGrid(
         tofData: IntArray,
         mode: Int,
         smoothed: FloatArray,
         holdover: IntArray,
-        currentDetections: List<DetectionResult>,
-        currentFrameWidth: Int,
-        currentFrameHeight: Int,
         alpha: Float = 0.3f
     ) {
         if (tofViews.isEmpty() || tofData.size != tofViews.size) return
-        if (currentFrameWidth == 0 || currentFrameHeight == 0) return
-
-        // OPTIMASI: Hitung centroid YOLO 1x saja di luar loop untuk menghindari O(N*M)
-        val yoloCells = BooleanArray(tofData.size)
-        for (det in currentDetections) {
-            val xcRaw = SpatialMappingUtils.centroidX(det.boundingBox.left, det.boundingBox.right)
-            val xc = xcRaw * (SpatialMappingUtils.W_CAM.toFloat() / currentFrameWidth)
-            val j = SpatialMappingUtils.mapToTofColumn(xc, mode)
-            
-            val ycRaw = (det.boundingBox.top + det.boundingBox.bottom) / 2f
-            val yc = ycRaw * (SpatialMappingUtils.H_CAM.toFloat() / currentFrameHeight)
-            val r = SpatialMappingUtils.mapToTofRow(yc, mode)
-            
-            if (r in 0 until mode && j in 0 until mode) {
-                yoloCells[r * mode + j] = true
-            }
-        }
 
         for (i in tofData.indices) {
-            val isYoloCentroid = yoloCells[i]
             var newText = "—"
             var newColor = colorInvalidCell
 
@@ -115,7 +99,6 @@ class ToFGridRenderer(
                     if (held > 0) {
                         newText = "$held"
                         newColor = getColorForDistance(held, dimmed = true)
-                        if (isYoloCentroid) newColor = ColorUtils.blendARGB(newColor, Color.BLUE, 0.4f)
                     }
                 } else {
                     smoothed[i] = 0f
@@ -127,10 +110,8 @@ class ToFGridRenderer(
                 val d = smoothed[i].toInt()
                 newText = "$d"
                 newColor = getColorForDistance(d)
-                if (isYoloCentroid) newColor = ColorUtils.blendARGB(newColor, Color.BLUE, 0.4f)
             }
 
-            // OPTIMASI: Update UI HANYA jika ada perubahan (mencegah overdraw/invalidation)
             if (currentTexts[i] != newText) {
                 currentTexts[i] = newText
                 tofViews[i].text = newText
@@ -142,6 +123,7 @@ class ToFGridRenderer(
         }
     }
 
+    /** Mengosongkan tampilan sel visual UI (mengembalikan ke warna abu-abu netral). */
     fun clearGrid() {
         tofViews.forEach {
             it.text = "—"
@@ -149,6 +131,7 @@ class ToFGridRenderer(
         }
     }
 
+    /** Menentukan warna visual sel (aman/peringatan/bahaya) berdasarkan jarak (mm). */
     private fun getColorForDistance(distance: Int, dimmed: Boolean = false): Int {
         if (distance <= 0) return colorInvalidCell
         val minDistance = 200f
@@ -156,8 +139,7 @@ class ToFGridRenderer(
         val clampedDistance = distance.coerceIn(minDistance.toInt(), maxDistance.toInt()).toFloat()
         val ratio = (clampedDistance - minDistance) / (maxDistance - minDistance)
         hsvTemp[0] = ratio * 120f
-        // Normal: 145/255 ≈ 57% opak — cukup terlihat di kamera tanpa menghalangi objek
-        // Dimmed: 65/255 ≈ 25% — holdover cell, lebih redup
+
         val alphaChannel = if (dimmed) 65 else 145
         return Color.HSVToColor(alphaChannel, hsvTemp)
     }

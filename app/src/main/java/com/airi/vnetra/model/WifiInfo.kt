@@ -1,19 +1,13 @@
 package com.airi.vnetra.model
 
-/**
- * Data class untuk menyimpan info WiFi dari ESP32
- */
 data class WifiInfo(
     val index: Int,
     val ssid: String,
     val rssi: Int,
     val encryption: String
 ) {
-    /**
-     * Parse dari string format: "WIFI:0|MyWiFi|-45|Secured"
-     * Dipertahankan untuk kompatibilitas — meski firmware saat ini hanya mengirim BATCH:
-     */
     companion object {
+        /** Menerjemahkan string raw JSON respons Wi-Fi menjadi struktur objek WifiInfo. */
         fun fromString(data: String): WifiInfo? {
             if (!data.startsWith("WIFI:")) return null
 
@@ -33,9 +27,7 @@ data class WifiInfo(
         }
     }
 
-    /**
-     * Get signal strength icon based on RSSI
-     */
+    /** Menerjemahkan nilai metrik RSSI dBm menjadi kategori kekuatan sinyal visual. */
     fun getSignalStrength(): SignalStrength {
         return when {
             rssi >= -50 -> SignalStrength.EXCELLENT

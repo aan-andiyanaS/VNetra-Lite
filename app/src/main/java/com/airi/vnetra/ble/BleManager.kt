@@ -49,11 +49,9 @@ class BleManager(private val context: Context) {
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState
 
-    // FIX A3: IO dispatcher — GATT callback sudah di BLE thread, hindari Main thread congestion
     private val bleJob = SupervisorJob()
     private val bleScope = CoroutineScope(Dispatchers.IO + bleJob)
 
-    // Buffer besar untuk handle burst notify dari WiFi scan (bisa 10+ notifikasi cepat)
     private val _receivedData = MutableSharedFlow<String>(
         replay = 0,
         extraBufferCapacity = 64
@@ -65,12 +63,14 @@ class BleManager(private val context: Context) {
     }
 
     private val scanCallback = object : ScanCallback() {
+        /** Menerima hasil pindaian (scan) perangkat Bluetooth BLE secara individual. */
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val current = _scanResults.value.toMutableList()
             val idx = current.indexOfFirst { it.device.address == result.device.address }
             if (idx >= 0) current[idx] = result else current.add(result)
             _scanResults.value = current
         }
+        /** Menangani kegagalan proses pemindaian BLE dan memberikan log error. */
         override fun onScanFailed(errorCode: Int) {
             Log.e(TAG, "Scan failed: $errorCode")
             _isScanning.value = false
@@ -79,13 +79,13 @@ class BleManager(private val context: Context) {
 
     private val gattCallback = object : BluetoothGattCallback() {
 
+        /** Memantau perubahan status koneksi GATT (terhubung/terputus) dengan ESP32. */
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     Log.d(TAG, "GATT connected, requesting MTU 512")
                     _connectionState.value = ConnectionState.CONNECTED
-                    // FIX: MTU harus direquest PERTAMA sebelum discoverServices
-                    // MTU default 23 bytes tidak cukup untuk BATCH WiFi payload
+
                     gatt.requestMtu(512)
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
@@ -99,13 +99,15 @@ class BleManager(private val context: Context) {
             }
         }
 
+        /** Dipanggil saat negosiasi ukuran maksimum paket transmisi (MTU) selesai. */
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             Log.d(TAG, "MTU changed to $mtu (status=$status)")
-            // Lanjut discover services hanya setelah MTU settled, apapun hasilnya
+
             _connectionState.value = ConnectionState.DISCOVERING_SERVICES
             gatt.discoverServices()
         }
 
+        /** Dipanggil saat layanan (services) dan karakteristik BLE pada ESP32 berhasil ditemukan. */
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Service discovery failed: $status")
@@ -119,8 +121,6 @@ class BleManager(private val context: Context) {
             commandCharacteristic = service.getCharacteristic(CHAR_COMMAND_UUID)
             responseCharacteristic = service.getCharacteristic(CHAR_RESPONSE_UUID)
 
-            // FIX B: JANGAN set READY di sini — subscribe notify dulu
-            // State READY hanya di-set setelah onDescriptorWrite sukses
             val rspChar = responseCharacteristic
             if (rspChar == null) {
                 Log.e(TAG, "Response characteristic not found")
@@ -137,6 +137,7 @@ class BleManager(private val context: Context) {
             writeCccd(gatt, descriptor)
         }
 
+        /** Konfirmasi bahwa deskriptor (CCCD) berhasil ditulis untuk mengaktifkan notifikasi. */
         override fun onDescriptorWrite(
             gatt: BluetoothGatt,
             descriptor: BluetoothGattDescriptor,
@@ -145,9 +146,7 @@ class BleManager(private val context: Context) {
             if (descriptor.uuid != CCCD_UUID) return
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.d(TAG, "CCCD written — notify active")
-                // FIX A1: Naikkan connection priority SETELAH notify aktif
-                // CONNECTION_PRIORITY_HIGH = interval 7.5–15ms (default BALANCED = 30–50ms)
-                // Ini kritis agar burst 5–10 notify dari bleScanWifi() tidak di-drop oleh Android BLE stack
+
                 gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
                 _connectionState.value = ConnectionState.READY
             } else {
@@ -156,15 +155,14 @@ class BleManager(private val context: Context) {
             }
         }
 
-        // FIX A2: Pisahkan handler API lama dan baru dengan guard eksplisit
-        // Mencegah double-emit yang terjadi pada beberapa device Android 13 buggy
         @Suppress("DEPRECATION")
         @Deprecated("Deprecated in Java")
+        /** Menerima paket data notifikasi asinkron (seperti status Wi-Fi/IP) dari ESP32. */
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic
         ) {
-            // Hanya handle di API < 33 — di API 33+ override baru yang aktif
+
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                 if (characteristic.uuid == CHAR_RESPONSE_UUID) {
                     dispatchData(characteristic.getStringValue(0) ?: return)
@@ -172,24 +170,26 @@ class BleManager(private val context: Context) {
             }
         }
 
+        /** Menerima paket data notifikasi asinkron (seperti status Wi-Fi/IP) dari ESP32. */
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            // API 33+ — Android tidak memanggil override deprecated jika ini ada
+
             if (characteristic.uuid == CHAR_RESPONSE_UUID) {
                 dispatchData(value.toString(Charsets.UTF_8))
             }
         }
     }
 
-    // Helper terpusat agar tidak ada duplikasi emit logic
+    /** Mengurai paket data masuk (seperti JSON Wi-Fi) dan memperbarui Flow status UI. */
     private fun dispatchData(data: String) {
         Log.d(TAG, "RX [${data.length}b]: ${data.take(120)}")
         bleScope.launch { _receivedData.emit(data) }
     }
 
+    /** Menulis deskriptor (CCCD) pada BLE untuk berlangganan aliran data notifikasi. */
     private fun writeCccd(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
@@ -201,8 +201,10 @@ class BleManager(private val context: Context) {
         }
     }
 
+    /** Mengecek apakah adapter Bluetooth sistem sedang aktif pada perangkat. */
     fun isBluetoothEnabled(): Boolean = bluetoothAdapter?.isEnabled == true
 
+    /** Memulai pemindaian perangkat BLE untuk mencari modul ESP32 di sekitar. */
     fun startScan() {
         if (_isScanning.value) return
         _scanResults.value = emptyList()
@@ -213,6 +215,7 @@ class BleManager(private val context: Context) {
         Log.d(TAG, "BLE scan started")
     }
 
+    /** Menghentikan proses pemindaian perangkat BLE untuk menghemat baterai. */
     fun stopScan() {
         if (!_isScanning.value) return
         bleScanner?.stopScan(scanCallback)
@@ -220,17 +223,20 @@ class BleManager(private val context: Context) {
         Log.d(TAG, "BLE scan stopped")
     }
 
+    /** Memulai koneksi ke jaringan atau layanan eksternal. */
     fun connect(device: BluetoothDevice) {
         stopScan()
         _connectionState.value = ConnectionState.CONNECTING
-        // autoConnect=false → koneksi langsung (lebih cepat untuk provisioning one-shot)
+
         bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
     }
 
+    /** Memutus koneksi dari jaringan atau layanan eksternal. */
     fun disconnect() {
         bluetoothGatt?.disconnect()
     }
 
+/** Mengirimkan perintah teks (contoh: setup Wi-Fi) ke modul ESP32 melalui koneksi BLE. */
 fun sendCommand(command: String): Boolean {
     Log.d(TAG, "sendCommand called: '$command'")
 
@@ -264,13 +270,16 @@ fun sendCommand(command: String): Boolean {
     }
 }
 
+    /** Memerintahkan perangkat keras untuk memindai jaringan WiFi yang tersedia. */
     fun scanWifi(): Boolean = sendCommand("SCAN")
 
+    /** Menyatukan SSID dan Password ke format JSON dan mengirimkannya ke ESP32 via BLE. */
     fun connectWifi(ssid: String, password: String): Boolean {
         Log.d(TAG, "Sending CONNECT for SSID: $ssid")
         return sendCommand("CONNECT:$ssid|$password")
     }
 
+    /** Memutus koneksi GATT dengan aman dan membebaskan memori/resource Bluetooth. */
     fun close() {
         stopScan()
         bluetoothGatt?.close()

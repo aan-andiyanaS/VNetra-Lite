@@ -49,7 +49,6 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#include <Adafruit_NeoPixel.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncUDP.h>
@@ -62,8 +61,8 @@
 
 
 // ======== RGB LED — GPIO 48 (WS2812) ========
-#define LED_PIN         48
-#define NUM_LEDS        1
+#define LED_PIN         2
+#define BUZZER_PIN      13
 #define LED_BRIGHTNESS  50
 #define BLINK_INTERVAL  500
 
@@ -186,7 +185,6 @@ volatile uint32_t stat_frames_cam = 0;
 volatile uint32_t stat_frames_imu = 0;
 volatile uint32_t stat_frames_tof = 0;
 
-Adafruit_NeoPixel rgbLed(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 Preferences        preferences;
 
 // WebSocket server
@@ -246,19 +244,29 @@ static bool     hadClientBefore     = false;    // pernah ada client (untuk trig
 static volatile bool wifiInitDone   = false;  // task selesai (berhasil atau gagal)
 static volatile bool wifiInitResult = false;  // true = berhasil connect
 
-// ======== LED HELPERS ========
-void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
-    rgbLed.setPixelColor(0, rgbLed.Color(r, g, b));
-    rgbLed.show();
+void buzzerBeep(int duration) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(duration);
+    digitalWrite(BUZZER_PIN, LOW);
 }
-void ledOff()    { setLedColor(0,   0,   0);   }
-void ledRed()    { setLedColor(255, 0,   0);   }
-void ledGreen()  { setLedColor(0,   255, 0);   }
-void ledBlue()   { setLedColor(0,   0,   255); }
-void ledYellow()  { setLedColor(255, 255, 0);   }
-void ledOrange()  { setLedColor(255, 80,  0);   }
-void ledMagenta() { setLedColor(255, 0,   180); }
-void ledWhite()   { setLedColor(255, 255, 255); }
+
+void buzzerOff() {
+    digitalWrite(BUZZER_PIN, LOW);
+}
+
+void setLedState(bool state) {
+    if (powerSaveMode) return;
+    digitalWrite(LED_PIN, state ? HIGH : LOW);
+}
+
+void ledOff()    { setLedState(false); }
+void ledRed()    { setLedState(true);  }
+void ledGreen()  { setLedState(true);  }
+void ledBlue()   { setLedState(true);  }
+void ledYellow() { setLedState(true);  }
+void ledOrange() { setLedState(true);  }
+void ledMagenta(){ setLedState(true);  }
+void ledWhite()  { setLedState(true);  }
 
 // ======== PREFERENCES ========
 void saveWiFiCredentials(const String& ssid, const String& pass) {
@@ -1330,8 +1338,8 @@ void handleStatsAndHeartbeat(uint32_t nowMs) {
 
 // ======== SETUP ========
 void setup() {
-    rgbLed.begin();
-    rgbLed.setBrightness(LED_BRIGHTNESS);
+    pinMode(LED_PIN, OUTPUT);
+    pinMode(BUZZER_PIN, OUTPUT);
     ledOff();
     pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
 

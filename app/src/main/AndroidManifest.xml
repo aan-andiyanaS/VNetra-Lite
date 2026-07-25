@@ -41,7 +41,7 @@
         NOTIFIKASI HEADS-UP (pop-up seperti WhatsApp):
         POST_NOTIFICATIONS wajib di Android 13+ (API 33+) agar
         notifikasi "ESP32-S3 Terkoneksi" muncul sebagai heads-up.
-        Permission ini di-request runtime dari CameraStreamActivity.
+        Permission ini di-request runtime dari StreamActivity.
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -85,13 +85,13 @@
             android:theme="@style/Theme.ESP32Config" />
 
         <activity
-            android:name=".ui.CameraStreamActivity"
+            android:name=".ui.StreamActivity"
             android:screenOrientation="portrait"
             android:launchMode="singleTop"
             android:theme="@style/Theme.ESP32Config" />
 
         <service
-            android:name=".service.CameraStreamService"
+            android:name=".service.StreamService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

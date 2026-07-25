@@ -20,7 +20,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.airi.vnetra.ble.BleManager
 import com.airi.vnetra.databinding.ActivityMainBinding
 import com.airi.vnetra.databinding.ItemDeviceBinding
-import com.airi.vnetra.ui.CameraStreamActivity
+import com.airi.vnetra.ui.StreamActivity
 import com.airi.vnetra.ui.DeviceConfigActivity
 import com.airi.vnetra.util.SessionManager
 import kotlinx.coroutines.flow.collectLatest
@@ -35,18 +35,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 
-/**
- * MainActivity — BLE Scanner / Landing screen
- *
- * Flow:
- *  1. Jika ada IP tersimpan (sesi aktif) → langsung ke CameraStreamActivity.
- *     Ini terjadi setelah provisioning pertama, dan TETAP terjadi setelah "Akhiri"
- *     (karena "Akhiri" tidak menghapus IP).
- *
- *  2. Jika tidak ada IP (pertama kali / setelah reset) → tampil BLE scan untuk provisioning.
- *
- * Halaman ini HANYA muncul saat belum ada perangkat ESP32 yang pernah dikonfigurasi.
- */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding:        ActivityMainBinding
@@ -80,21 +68,19 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK) checkPermissionsAndScan()
     }
 
+    /** Fungsi siklus hidup Android: dieksekusi saat komponen (Activity/Service) pertama kali dibuat. */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Edge-to-edge layout setup
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
-        
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Apply Window Insets safely to avoid status/navigation bar overlaps
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(
@@ -109,9 +95,10 @@ class MainActivity : AppCompatActivity() {
         sessionManager = SessionManager(this)
 
         bleManager = BleManager(this)
-        val adapter = DeviceAdapter { scanResult ->
+        @android.annotation.SuppressLint("MissingPermission")
+          val adapter = DeviceAdapter { scanResult ->
             startActivity(Intent(this, DeviceConfigActivity::class.java).apply {
-                putExtra("device_name",    scanResult.device.name ?: "Unknown")
+                putExtra("device_name",    if (hasBleConnectPermission()) scanResult.device.name ?: "Unknown" else "Unknown")
                 putExtra("device_address", scanResult.device.address)
             })
         }
@@ -122,22 +109,20 @@ class MainActivity : AppCompatActivity() {
             this.adapter  = adapter
         }
 
-        // Sembunyikan elemen banner (tidak digunakan secara default)
         binding.layoutBanner.visibility = View.GONE
 
         setupClickListeners()
         observeState()
 
-        // Mulai scan otomatis saat halaman pertama dibuka
         checkBluetoothAndScan()
 
-        // Cek IP tersimpan dan mulai background auto-connect check
         val savedIp = sessionManager.getSavedEsp32Ip()
         if (savedIp != null) {
             startAutoConnectCheck(savedIp)
         }
     }
 
+    /** Menyiapkan aksi saat elemen antarmuka ditekan oleh pengguna. */
     private fun setupClickListeners() {
         binding.btnScan.setOnClickListener {
             val bm = bleManager ?: return@setOnClickListener
@@ -146,6 +131,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Memantau perubahan state dari ViewModel atau Flow untuk memperbarui UI. */
     private fun observeState() {
         val bm = bleManager ?: return
 
@@ -167,6 +153,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Menjalankan operasi logika spesifik fungsi ini. */
     private fun checkBluetoothAndScan() {
         val bm = bleManager ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
@@ -187,6 +174,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Menjalankan operasi logika spesifik fungsi ini. */
     private fun checkPermissionsAndScan() {
         val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
@@ -200,28 +188,29 @@ class MainActivity : AppCompatActivity() {
         else permissionLauncher.launch(notGranted.toTypedArray())
     }
 
+    /** Menjalankan operasi logika spesifik fungsi ini. */
     private fun startScan() {
         bleManager?.startScan()
         binding.root.removeCallbacks(stopScanRunnable)
-        binding.root.postDelayed(stopScanRunnable, 15_000)  // auto-stop 15 detik
+        binding.root.postDelayed(stopScanRunnable, 15_000)
     }
 
+    /** Dipanggil saat komponen dihancurkan; membersihkan resource. */
     override fun onDestroy() {
         super.onDestroy()
         autoConnectJob?.cancel()
         binding.root.removeCallbacks(stopScanRunnable)
-        bleManager?.close()  // null-safe karena var nullable
+        bleManager?.close()
     }
 
+    /** Menjalankan operasi logika spesifik fungsi ini. */
     private fun startAutoConnectCheck(ipAddress: String) {
         autoConnectJob?.cancel()
 
-        // Tampilkan banner informasi pencarian perangkat tersimpan
         binding.layoutBanner.visibility = View.VISIBLE
         binding.tvBannerMessage.text = "Menghubungkan ke perangkat tersimpan ($ipAddress)..."
         binding.btnConnectCamera.text = "Batal"
-        
-        // Klik Batal untuk membatalkan proses pencarian otomatis
+
         binding.btnConnectCamera.setOnClickListener {
             autoConnectJob?.cancel()
             binding.layoutBanner.visibility = View.GONE
@@ -245,20 +234,17 @@ class MainActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         if (!isFinishing && !isDestroyed) {
                             Toast.makeText(this@MainActivity, "Terhubung ke ESP32 ($ipAddress)", Toast.LENGTH_SHORT).show()
-                            startActivity(CameraStreamActivity.createIntent(this@MainActivity, ipAddress))
+                            startActivity(StreamActivity.createIntent(this@MainActivity, ipAddress))
                             finish()
                         }
                     }
                     break
                 }
 
-                // Tunggu 3 detik sebelum mencoba lagi
                 delay(3000)
             }
         }
     }
-
-    // ── Adapter ──────────────────────────────────────────────────────────────
 
     inner class DeviceAdapter(
         private val onClick: (ScanResult) -> Unit
@@ -266,20 +252,26 @@ class MainActivity : AppCompatActivity() {
 
         private var items: List<ScanResult> = emptyList()
 
+        /** Mengirimkan daftar data terbaru ke Adapter untuk dirender ulang. */
         fun submitList(newItems: List<ScanResult>) {
             items = newItems
             notifyDataSetChanged()
         }
 
+        /** Membuat dan menginisialisasi ViewHolder untuk item daftar. */
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
             ViewHolder(ItemDeviceBinding.inflate(LayoutInflater.from(parent.context), parent, false))
 
+        /** Mengisi data spesifik ke dalam elemen tampilan pada posisi tertentu. */
         override fun onBindViewHolder(holder: ViewHolder, position: Int) = holder.bind(items[position])
+        /** Mengembalikan jumlah total item dalam daftar RecyclerView. */
         override fun getItemCount() = items.size
 
         inner class ViewHolder(private val b: ItemDeviceBinding) : RecyclerView.ViewHolder(b.root) {
-            fun bind(sr: ScanResult) {
-                b.tvDeviceName.text    = sr.device.name ?: "Unknown Device"
+            /** Mengikat data spesifik ke dalam elemen tampilan individual. */
+            @android.annotation.SuppressLint("MissingPermission")
+              fun bind(sr: ScanResult) {
+                b.tvDeviceName.text    = if (hasBleConnectPermission()) sr.device.name ?: "Unknown Device" else "Unknown Device"
                 b.tvDeviceAddress.text = sr.device.address
                 b.tvRssi.text          = "${sr.rssi} dBm"
                 b.root.setOnClickListener { onClick(sr) }
@@ -287,7 +279,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Mengonversi ukuran dari Density-Independent Pixel (DP) ke Pixel (Px). */
     private fun Int.dpToPx(): Int {
         return (this * resources.displayMetrics.density).toInt()
+    }
+
+    private fun hasBleConnectPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
     }
 }

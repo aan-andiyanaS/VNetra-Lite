@@ -1,5 +1,13 @@
 package com.airi.vnetra.ui
 
+/**
+ * DeviceConfigActivity
+ *
+ * Titik masuk (entry point) aplikasi untuk penemuan perangkat keras (ESP32).
+ * Memindai IP lokal atau menggunakan mDNS untuk menemukan server ESP32 di jaringan,
+ * lalu meluncurkan dashboard navigasi jika berhasil.
+ */
+
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.bluetooth.BluetoothDevice
@@ -29,10 +37,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 
-/**
- * DeviceConfigActivity - WiFi Configuration screen
- * Connect ke ESP32, scan WiFi, dan kirim credentials
- */
 @SuppressLint("MissingPermission")
 class DeviceConfigActivity : AppCompatActivity() {
 
@@ -43,49 +47,41 @@ class DeviceConfigActivity : AppCompatActivity() {
     private var deviceAddress: String = ""
     private val wifiList = mutableListOf<WifiInfo>()
 
-    // IP ESP32 yang didapat setelah koneksi WiFi berhasil
-    // Dikirim via intent dari MainActivity atau diparse dari response ESP32
     private var esp32IpAddress: String = ""
     private lateinit var sessionManager: SessionManager
 
-    // Dialog untuk input password
     private var passwordDialog: AlertDialog? = null
     private var dialogBinding: DialogWifiPasswordBinding? = null
     private var isConnecting = false
 
+    /** Fungsi siklus hidup Android: dieksekusi saat komponen (Activity/Service) pertama kali dibuat. */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Edge-to-edge layout setup
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
-        
         binding = ActivityDeviceConfigBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Set support action bar with the custom toolbar
         setSupportActionBar(binding.toolbar)
 
         val deviceName = intent.getStringExtra("device_name") ?: "Unknown"
         deviceAddress  = intent.getStringExtra("device_address") ?: ""
-        // IP bisa dikirim dari MainActivity jika ESP32 sudah pernah terhubung
+
         esp32IpAddress = intent.getStringExtra("esp32_ip") ?: ""
 
         supportActionBar?.title = deviceName
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        // Apply dynamic safe area padding using Window Insets
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            
-            // Padding top for toolbar so it draws behind status bar, but text starts below
+
             binding.toolbar.setPadding(0, systemBars.top, 0, 0)
-            
-            // Bottom padding for the content view to stay above system navigation bar
+
             binding.contentLayout.setPadding(
                 16.dpToPx(),
                 16.dpToPx(),
@@ -103,10 +99,10 @@ class DeviceConfigActivity : AppCompatActivity() {
         observeState()
         connectToDevice()
 
-        // Tampilkan tombol kamera jika IP sudah diketahui sebelum BLE provisioning
         updateCameraButtonVisibility()
     }
 
+    /** Menginisialisasi komponen RecyclerView untuk daftar perangkat/WiFi. */
     private fun setupRecyclerView() {
         wifiAdapter = WifiAdapter { wifiInfo ->
             showPasswordDialog(wifiInfo)
@@ -118,21 +114,22 @@ class DeviceConfigActivity : AppCompatActivity() {
         }
     }
 
+    /** Menyiapkan aksi saat elemen antarmuka ditekan oleh pengguna. */
     private fun setupClickListeners() {
         binding.btnScanWifi.setOnClickListener {
             scanWifi()
         }
 
-        // Tombol buka live camera stream — hanya aktif jika IP sudah diketahui
         binding.btnViewCamera.setOnClickListener {
             if (esp32IpAddress.isNotEmpty()) {
-                startActivity(CameraStreamActivity.createIntent(this, esp32IpAddress))
+                startActivity(StreamActivity.createIntent(this, esp32IpAddress))
             } else {
                 Toast.makeText(this, "IP ESP32 belum diketahui. Lakukan koneksi WiFi terlebih dahulu.", Toast.LENGTH_LONG).show()
             }
         }
     }
 
+/** Memantau perubahan state dari ViewModel atau Flow untuk memperbarui UI. */
 private fun observeState() {
     lifecycleScope.launch {
         bleManager.connectionState.collectLatest { state ->
@@ -140,11 +137,6 @@ private fun observeState() {
         }
     }
 
-    // FIX: Karena bleScope sekarang Dispatchers.IO, emit dari BleManager
-    // terjadi di IO thread. collectLatest/collect di lifecycleScope (Main)
-    // sudah otomatis switch ke Main — tidak perlu runOnUiThread manual.
-    // Ganti collect → collectLatest TIDAK boleh — karena data WiFi harus
-    // semua diterima (BATCH 1, BATCH 2, dst). Tetap pakai collect.
     lifecycleScope.launch(Dispatchers.Main.immediate) {
         bleManager.receivedData.collect { data ->
             processReceivedData(data)
@@ -152,6 +144,7 @@ private fun observeState() {
     }
 }
 
+    /** Memperbarui elemen antarmuka sesuai status koneksi saat ini. */
     private fun updateConnectionUI(state: BleManager.ConnectionState) {
         when (state) {
             BleManager.ConnectionState.DISCONNECTED -> {
@@ -178,6 +171,7 @@ private fun observeState() {
         }
     }
 
+    /** Memproses data mentah (String) yang diterima dari perangkat keras. */
     private fun processReceivedData(data: String) {
         android.util.Log.d("DeviceConfig", "Processing: $data")
 
@@ -235,16 +229,15 @@ private fun observeState() {
             data.startsWith("CONNECT:") -> {
                 handleConnectResponse(data.removePrefix("CONNECT:"))
             }
-            // Format: IP:192.168.1.100 — dikirim ESP32 setelah terhubung WiFi
+
             data.startsWith("IP:") -> {
                 val ip = data.removePrefix("IP:").trim()
                 if (ip.isNotEmpty()) {
                     esp32IpAddress = ip
                     android.util.Log.d("DeviceConfig", "ESP32 IP received: $esp32IpAddress")
-                    // Simpan IP ke SharedPreferences agar saat app dibuka ulang
-                    // tidak perlu scan BLE lagi
+
                     sessionManager.saveEsp32Ip(ip)
-                    // Simpan juga MAC address untuk BLE auto-reconnect di masa depan
+
                     if (deviceAddress.isNotEmpty()) {
                         sessionManager.saveLastDeviceMac(deviceAddress)
                     }
@@ -258,18 +251,14 @@ private fun observeState() {
                     runOnUiThread {
                         passwordDialog?.dismiss()
 
-                        // Update status UI — JANGAN panggil finish() di sini!
-                        // Jika finish() dipanggil, DeviceConfigActivity hilang dari back stack
-                        // sehingga ketika user kembali dari CameraStreamActivity
-                        // langsung ke MainActivity (bukan DeviceConfigActivity)
                         binding.tvStatus.text = "ESP32 ready ✓"
-                        binding.tvScanStatus.text = "WiFi connected! Camera server starting..."
+                        binding.tvScanStatus.text = "WiFi connected! Sensor server starting..."
                         binding.progressWifi.visibility = View.GONE
                         binding.btnScanWifi.isEnabled = false
 
                         Toast.makeText(
                             this,
-                            "✓ WiFi terhubung! Tekan 'View Camera' untuk streaming.",
+                            "✓ WiFi terhubung! Tekan 'View Sensor' untuk streaming.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -278,20 +267,16 @@ private fun observeState() {
         }
     }
 
-    /**
-     * Tampilkan atau sembunyikan tombol "View Camera" berdasarkan ketersediaan IP
-     */
+    /** Mengatur visibilitas tombol stream berdasarkan ketersediaan IP. */
     private fun updateCameraButtonVisibility() {
         binding.btnViewCamera.visibility =
             if (esp32IpAddress.isNotEmpty()) View.VISIBLE else View.GONE
     }
 
-    /**
-     * Tampilkan dialog untuk input password WiFi
-     */
+    /** Menampilkan popup dialog untuk memasukkan password WiFi. */
     private fun showPasswordDialog(wifiInfo: WifiInfo) {
         dialogBinding = DialogWifiPasswordBinding.inflate(layoutInflater)
-        val dialogView = dialogBinding!!
+        val dialogView = dialogBinding ?: return
 
         dialogView.tvWifiName.text = wifiInfo.ssid
         dialogView.tvWifiInfo.text = "Signal: ${wifiInfo.rssi} dBm • ${wifiInfo.encryption}"
@@ -325,9 +310,7 @@ private fun observeState() {
         passwordDialog?.show()
     }
 
-    /**
-     * Kirim credentials ke ESP32 dan tampilkan status
-     */
+    /** Mengirim instruksi ke perangkat keras untuk terhubung ke router WiFi. */
     private fun connectToWifi(ssid: String, password: String) {
         if (isConnecting) return
         isConnecting = true
@@ -351,10 +334,7 @@ private fun observeState() {
         }
     }
 
-    /**
-     * Handle response dari ESP32 (CONNECT:SUCCESS atau CONNECT:FAILED:reason)
-     * Setelah SUCCESS, tampilkan opsi untuk membuka live camera stream
-     */
+    /** Memproses balasan (response) setelah percobaan koneksi WiFi. */
     private fun handleConnectResponse(response: String) {
         android.util.Log.d("DeviceConfig", "Connect response: $response")
 
@@ -371,14 +351,11 @@ private fun observeState() {
                             passwordDialog?.dismiss()
                             Toast.makeText(this, "WiFi connected!", Toast.LENGTH_SHORT).show()
 
-                            // Tampilkan tombol kamera dengan animasi fade-in
-                            // IP mungkin belum tersedia jika ESP32 belum kirim "IP:" notif
-                            // Tombol tetap tampil — user bisa input manual jika perlu
                             if (esp32IpAddress.isNotEmpty()) {
                                 updateCameraButtonVisibility()
                                 Toast.makeText(
                                     this,
-                                    "Tekan 'View Camera' untuk melihat live stream",
+                                    "Tekan 'View Sensor' untuk melihat live stream",
                                     Toast.LENGTH_LONG
                                 ).show()
                             }
@@ -399,6 +376,7 @@ private fun observeState() {
         }
     }
 
+    /** Memulai prosedur koneksi ke perangkat ESP32 utama. */
     private fun connectToDevice() {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val adapter          = bluetoothManager.adapter
@@ -406,6 +384,7 @@ private fun observeState() {
         bleManager.connect(device)
     }
 
+    /** Memerintahkan perangkat keras untuk memindai jaringan WiFi yang tersedia. */
     private fun scanWifi() {
         wifiList.clear()
         wifiAdapter.submitList(emptyList())
@@ -419,32 +398,33 @@ private fun observeState() {
         }
     }
 
+    /** Menangani logika tombol kembali pada action bar. */
     override fun onSupportNavigateUp(): Boolean {
         @Suppress("DEPRECATION")
         onBackPressed()
         return true
     }
 
+    /** Dipanggil saat komponen dihancurkan; membersihkan resource. */
     override fun onDestroy() {
         super.onDestroy()
         passwordDialog?.dismiss()
         bleManager.close()
     }
 
-    /**
-     * Adapter for WiFi list
-     */
     inner class WifiAdapter(
         private val onClick: (WifiInfo) -> Unit
     ) : RecyclerView.Adapter<WifiAdapter.ViewHolder>() {
 
         private var items: List<WifiInfo> = emptyList()
 
+        /** Mengirimkan daftar data terbaru ke Adapter untuk dirender ulang. */
         fun submitList(newItems: List<WifiInfo>) {
             items = newItems
             notifyDataSetChanged()
         }
 
+        /** Membuat dan menginisialisasi ViewHolder untuk item daftar. */
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val binding = ItemWifiBinding.inflate(
                 LayoutInflater.from(parent.context), parent, false
@@ -452,16 +432,19 @@ private fun observeState() {
             return ViewHolder(binding)
         }
 
+        /** Mengisi data spesifik ke dalam elemen tampilan pada posisi tertentu. */
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             holder.bind(items[position])
         }
 
+        /** Mengembalikan jumlah total item dalam daftar RecyclerView. */
         override fun getItemCount() = items.size
 
         inner class ViewHolder(
             private val binding: ItemWifiBinding
         ) : RecyclerView.ViewHolder(binding.root) {
 
+            /** Mengikat data spesifik ke dalam elemen tampilan individual. */
             fun bind(wifi: WifiInfo) {
                 binding.tvSsid.text       = wifi.ssid
                 binding.tvRssi.text       = "${wifi.rssi} dBm"
@@ -480,6 +463,7 @@ private fun observeState() {
         }
     }
 
+    /** Mengonversi ukuran dari Density-Independent Pixel (DP) ke Pixel (Px). */
     private fun Int.dpToPx(): Int {
         return (this * resources.displayMetrics.density).toInt()
     }
