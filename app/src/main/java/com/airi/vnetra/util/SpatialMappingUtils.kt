@@ -11,6 +11,12 @@ package com.airi.vnetra.util
 
 object SpatialMappingUtils {
 
+    // Konstanta Deteksi Tembok (Clean Code)
+    const val WALL_MIN_DIST_MM = 30
+    const val WALL_MAX_DIST_MM = 1500
+    const val WALL_COVERAGE_RATIO = 0.60f
+    const val WALL_FLATNESS_TOLERANCE_MM = 300
+
     const val W_VIRTUAL   = 640
     const val H_VIRTUAL   = 480
 
@@ -101,18 +107,29 @@ object SpatialMappingUtils {
     fun isInTofZone(xc: Float): Boolean =
         xc >= D_LEFT && xc < (D_LEFT + W_TOF)
 
-    /** Menganalisis matriks ToF untuk menentukan keberadaan rintangan datar (tembok). */
-    fun isWall(tofData: IntArray, resolution: Int): Boolean {
+    /** 
+     * Menganalisis matriks ToF untuk menentukan keberadaan rintangan datar (tembok). 
+     * Dilengkapi kompensasi kemiringan kepala (Pitch-Aware) agar lantai tidak dikira tembok saat menunduk.
+     */
+    fun isWall(tofData: IntArray, resolution: Int, thetaDeg: Float): Boolean {
         val size = resolution * resolution
         if (tofData.size != size) return false
 
-        val nearValues = tofData.filter { it in 30..1500 }
+        // Jika menunduk tajam (melihat ke tanah), toleransi kerataan diperketat
+        // agar aspal/lantai tidak lolos seleksi sebagai rintangan.
+        val tolerance = if (thetaDeg < -15f) {
+            WALL_FLATNESS_TOLERANCE_MM / 2
+        } else {
+            WALL_FLATNESS_TOLERANCE_MM
+        }
 
-        if (nearValues.size < size * 0.60) return false
+        val nearValues = tofData.filter { it in WALL_MIN_DIST_MM..WALL_MAX_DIST_MM }
+
+        if (nearValues.size < size * WALL_COVERAGE_RATIO) return false
 
         val min = nearValues.minOrNull() ?: return false
         val max = nearValues.maxOrNull() ?: return false
 
-        return (max - min) <= 300
+        return (max - min) <= tolerance
     }
 }

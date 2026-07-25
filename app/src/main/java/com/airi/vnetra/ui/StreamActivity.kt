@@ -638,7 +638,7 @@ class StreamActivity : AppCompatActivity() {
         }
 
         if (::ttsAlertManager.isInitialized) {
-            val wallDetected = SpatialMappingUtils.isWall(tofData, currentTofMode)
+            val wallDetected = SpatialMappingUtils.isWall(tofData, currentTofMode, thetaDeg)
             var genericObstacleDistance = Int.MAX_VALUE
             val centerCols = SpatialMappingUtils.centerColumns(currentTofMode)
             for (c in centerCols) {
