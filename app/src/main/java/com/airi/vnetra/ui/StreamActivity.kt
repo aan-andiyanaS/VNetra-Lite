@@ -617,11 +617,14 @@ class StreamActivity : AppCompatActivity() {
         if (::ttsAlertManager.isInitialized) {
             val wallDetected = SpatialMappingUtils.isWall(tofData, thetaDeg)
             var genericObstacleDistance = Int.MAX_VALUE
-            val centerCols = SpatialMappingUtils.centerColumns()
-            for (c in centerCols) {
+            var closestCol = 3 // Default to center
+
+            // Loop through all 8 columns to find the closest obstacle
+            for (c in 0..7) {
                 val d = TofDepthEstimator.calculate(tofData, c, thetaDeg)
                 if (d < genericObstacleDistance) {
                     genericObstacleDistance = d
+                    closestCol = c
                 }
             }
 
@@ -635,10 +638,13 @@ class StreamActivity : AppCompatActivity() {
                     genericObstacleDistance
                 }
                 
+                // Get the clock direction based on the column that detected the closest obstacle
+                val dynamicClockDirection = SpatialMappingUtils.getColumnClockDirection(closestCol)
+                
                 val obstacleAlert = ttsAlertManager.process(
                     trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
                     dObj = obstacleDist,
-                    clockDirection = 12,
+                    clockDirection = dynamicClockDirection,
                     objectLabel = if (wallDetected) "tembok" else "halangan",
                     isMovingForward = isMovingForward,
                     imuData = imuSnap

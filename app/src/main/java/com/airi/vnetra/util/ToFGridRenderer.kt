@@ -70,10 +70,6 @@ class ToFGridRenderer(
             }.also { gridLayout.addView(it) }
         }
 
-        val overlapFraction = (TOF_FOV_V - FOV_V) / 2f / TOF_FOV_V
-        gridLayout.post {
-            gridLayout.translationY = -(gridLayout.height.toFloat() * overlapFraction)
-        }
     }
 
     /** Memperbarui warna dan teks pada setiap sel UI berdasarkan data jarak ToF terbaru. */
