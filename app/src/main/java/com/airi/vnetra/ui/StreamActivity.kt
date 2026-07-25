@@ -535,7 +535,6 @@ class StreamActivity : AppCompatActivity() {
         }
 
         tofCollectJob = lifecycleScope.launch(Dispatchers.Default) {
-
             var localSmoothed: FloatArray? = null
             var localHoldover: IntArray?   = null
 
@@ -543,152 +542,10 @@ class StreamActivity : AppCompatActivity() {
                 svc.tofFlow.collect { tofData ->
                     if (isDestroyed || isFinishing || isAkhiring) return@collect
                     latestTofData = tofData
-
-                    val startSmooth = System.currentTimeMillis()
-
-                    if (cachedTofGridSize == 0 || tofData.size != cachedTofGridSize) {
-                        withContext(Dispatchers.Main) {
-                            if (!::tofGridRenderer.isInitialized) return@withContext
-                            val currentSize = tofGridRenderer.getGridSize()
-                            if (tofData.size != currentSize) {
-                                val detectedMode = if (tofData.size == 16) 4 else 8
-                                if (currentTofMode != detectedMode) {
-                                    currentTofMode = detectedMode
-                                    saveTofMode(detectedMode)
-                                    tofGridRenderer.rebuildGrid(detectedMode)
-                                    updateTofModeButtons(detectedMode)
-                                }
-                                localSmoothed = null
-                                localHoldover = null
-
-                            } else {
-                                cachedTofGridSize = currentSize
-                            }
-                        }
-                        pingTofSmooth = System.currentTimeMillis() - startSmooth
-                        if (cachedTofGridSize == 0) return@collect
-                    }
-
-                    if (localSmoothed == null || localSmoothed?.size != tofData.size) {
-                        localSmoothed = FloatArray(tofData.size) { i -> tofData[i].toFloat() }
-                        localHoldover = null
-                    }
-                    if (localHoldover == null || localHoldover?.size != tofData.size) {
-                        localHoldover = IntArray(tofData.size) { HOLDOVER_FRAMES }
-                    }
-
-                    val smoothed = localSmoothed ?: FloatArray(tofData.size).also { localSmoothed = it }
-                    val holdover = localHoldover ?: IntArray(tofData.size) { HOLDOVER_FRAMES }.also { localHoldover = it }
-                    val alpha = 0.3f
-                                                                                val mode = currentTofMode
-
-                    withContext(Dispatchers.Main) {
-                        if (!isDestroyed && !isFinishing && !isAkhiring && ::tofGridRenderer.isInitialized) {
-                            tofGridRenderer.updateGrid(
-                                tofData = tofData,
-                                mode = mode,
-                                smoothed = smoothed,
-                                holdover = holdover,
-                                alpha = alpha
-                            )
-                        }
-                    }
-                    pingTofSmooth = System.currentTimeMillis() - startSmooth
-
-                    val imuSnap  = safeImuData
-                    val rawTheta = imuSnap?.getOrElse(0) { 0f } ?: 0f
-                    val thetaDeg = rawTheta - 20f
-
-                    val startFormula = System.currentTimeMillis()
-                    var closeThreatExists = false
-                    var allClear = true
-
-                    navigationCoordinator.updateMovementState(imuSnap)
-                    val isMovingForward = navigationCoordinator.movingForwardConsecutiveFrames >= 3
-                    val yawRate = imuSnap?.getOrElse(4) { 0f } ?: 0f
-
-                    val isTurning = kotlin.math.abs(yawRate) > 10f
-
-                    val isHeadRotating = navigationCoordinator.isHeadRotating(imuSnap, 15f)
-
-                    if (isMovingForward && ::ttsAlertManager.isInitialized && ttsAlertManager.isMuted) {
-                        ttsAlertManager.isMuted = false
-                        ttsAlertManager.speakForce("Pergerakan terdeteksi, suara diaktifkan kembali")
-                    }
-
-                                        if (::ttsAlertManager.isInitialized) {
-
-                        val wallDetected = SpatialMappingUtils.isWall(tofData, currentTofMode)
-                        var genericObstacleDistance = Int.MAX_VALUE
-                        val centerCols = SpatialMappingUtils.centerColumns(currentTofMode)
-                        for (c in centerCols) {
-                            val d = TofDepthEstimator.calculate(tofData, c, thetaDeg, currentTofMode)
-                            if (d < genericObstacleDistance) {
-                                genericObstacleDistance = d
-                            }
-                        }
-
-                        if ((wallDetected || genericObstacleDistance < 2000)) {
-                            val obstacleDist = if (wallDetected) {
-
-                                var sum = 0L; var count = 0
-                                for (d in tofData) { if (d in 30..1500) { sum += d; count++ } }
-                                if (count > 0) (sum / count).toInt() else Int.MAX_VALUE
-                            } else {
-                                genericObstacleDistance
-                            }
-                            val obstacleAlert = ttsAlertManager.process(
-                                trackingId      = SpatialMappingUtils.WALL_TRACKING_ID,
-                                dObj            = obstacleDist,
-                                clockDirection  = 12,
-                                objectLabel     = if (wallDetected) "tembok" else "halangan",
-                                isMovingForward = isMovingForward,
-                                imuData         = safeImuData
-                            )
-                            if (obstacleAlert != null) {
-                                ttsAlertManager.speak(obstacleAlert)
-                            }
-
-                            val adaptiveT = ttsAlertManager.getAdaptiveThreshold(SpatialMappingUtils.WALL_TRACKING_ID)
-                            if (obstacleDist < adaptiveT) {
-                                closeThreatExists = true
-                            }
-                            if (obstacleDist < adaptiveT + TtsAlertManager.EPS_CLEAR_ZONE) {
-                                allClear = false
-                            }
-                        } else {
-
-                            ttsAlertManager.process(
-                                trackingId      = SpatialMappingUtils.WALL_TRACKING_ID,
-                                dObj            = 2000,
-                                clockDirection  = 12,
-                                objectLabel     = "tembok",
-                                isMovingForward = isMovingForward,
-                                imuData         = safeImuData
-                            )
-                        }
-
-                        val isDanger = closeThreatExists || !allClear
-
-                        if (::ttsAlertManager.isInitialized) {
-                            ttsAlertManager.smartNavigation.processNavigationState(
-                                isDanger = isDanger,
-                                isMovingForward = isMovingForward,
-                                isTurning = isTurning,
-                                isHeadRotating = isHeadRotating
-                            )
-                        }
-
-                        if (closeThreatExists) {
-                            isBlockedState = true
-                        } else if (allClear && isBlockedState) {
-                            isBlockedState = false
-                        }
-                    }
-                    pingFormulaEH = System.currentTimeMillis() - startFormula
-
-                    pingTotalTof = pingTofSmooth + pingFormulaEH
-
+                    
+                    val (smoothed, holdover) = processTofData(tofData, localSmoothed, localHoldover)
+                    localSmoothed = smoothed
+                    localHoldover = holdover
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -696,6 +553,157 @@ class StreamActivity : AppCompatActivity() {
                 android.util.Log.e("StreamActivity", "TOF collect error", e)
             }
         }
+    }
+
+    /**
+     * Memproses data ToF mentah, melakukan penghalusan (smoothing), dan mengevaluasi hambatan.
+     * @param tofData Data mentah dari sensor ToF.
+     * @param prevSmoothed Data halus dari frame sebelumnya.
+     * @param prevHoldover Data penahan frame sebelumnya.
+     * @return Pair berisi array data yang sudah dihaluskan dan array holdover terbaru.
+     */
+    private suspend fun processTofData(
+        tofData: IntArray,
+        prevSmoothed: FloatArray?,
+        prevHoldover: IntArray?
+    ): Pair<FloatArray, IntArray> {
+        val startSmooth = System.currentTimeMillis()
+
+        if (cachedTofGridSize == 0 || tofData.size != cachedTofGridSize) {
+            withContext(Dispatchers.Main) {
+                if (::tofGridRenderer.isInitialized) {
+                    val currentSize = tofGridRenderer.getGridSize()
+                    if (tofData.size != currentSize) {
+                        val detectedMode = if (tofData.size == 16) 4 else 8
+                        if (currentTofMode != detectedMode) {
+                            currentTofMode = detectedMode
+                            saveTofMode(detectedMode)
+                            tofGridRenderer.rebuildGrid(detectedMode)
+                            updateTofModeButtons(detectedMode)
+                        }
+                    } else {
+                        cachedTofGridSize = currentSize
+                    }
+                }
+            }
+            pingTofSmooth = System.currentTimeMillis() - startSmooth
+            if (cachedTofGridSize == 0) return Pair(FloatArray(0), IntArray(0))
+        }
+
+        val localSmoothed = if (prevSmoothed == null || prevSmoothed.size != tofData.size) FloatArray(tofData.size) { i -> tofData[i].toFloat() } else prevSmoothed
+        val localHoldover = if (prevHoldover == null || prevHoldover.size != tofData.size) IntArray(tofData.size) { HOLDOVER_FRAMES } else prevHoldover
+
+        val alpha = 0.3f
+        val mode = currentTofMode
+
+        withContext(Dispatchers.Main) {
+            if (!isDestroyed && !isFinishing && !isAkhiring && ::tofGridRenderer.isInitialized) {
+                tofGridRenderer.updateGrid(
+                    tofData = tofData,
+                    mode = mode,
+                    smoothed = localSmoothed,
+                    holdover = localHoldover,
+                    alpha = alpha
+                )
+            }
+        }
+        pingTofSmooth = System.currentTimeMillis() - startSmooth
+
+        evaluateObstacles(tofData)
+        return Pair(localSmoothed, localHoldover)
+    }
+
+    /**
+     * Mengevaluasi data hambatan berdasarkan jarak ToF dan orientasi IMU.
+     * @param tofData Data jarak dari sensor ToF.
+     */
+    private fun evaluateObstacles(tofData: IntArray) {
+        val imuSnap = safeImuData
+        val rawTheta = imuSnap?.getOrElse(0) { 0f } ?: 0f
+        val thetaDeg = rawTheta - 20f
+
+        val startFormula = System.currentTimeMillis()
+        var closeThreatExists = false
+        var allClear = true
+
+        navigationCoordinator.updateMovementState(imuSnap)
+        val isMovingForward = navigationCoordinator.movingForwardConsecutiveFrames >= 3
+        val yawRate = imuSnap?.getOrElse(4) { 0f } ?: 0f
+        val isTurning = kotlin.math.abs(yawRate) > 10f
+        val isHeadRotating = navigationCoordinator.isHeadRotating(imuSnap, 15f)
+
+        if (isMovingForward && ::ttsAlertManager.isInitialized && ttsAlertManager.isMuted) {
+            ttsAlertManager.isMuted = false
+            ttsAlertManager.speakForce("Pergerakan terdeteksi, suara diaktifkan kembali")
+        }
+
+        if (::ttsAlertManager.isInitialized) {
+            val wallDetected = SpatialMappingUtils.isWall(tofData, currentTofMode)
+            var genericObstacleDistance = Int.MAX_VALUE
+            val centerCols = SpatialMappingUtils.centerColumns(currentTofMode)
+            for (c in centerCols) {
+                val d = TofDepthEstimator.calculate(tofData, c, thetaDeg, currentTofMode)
+                if (d < genericObstacleDistance) {
+                    genericObstacleDistance = d
+                }
+            }
+
+            if ((wallDetected || genericObstacleDistance < 2000)) {
+                val obstacleDist = if (wallDetected) {
+                    var sum = 0L
+                    var count = 0
+                    for (d in tofData) { if (d in 30..1500) { sum += d; count++ } }
+                    if (count > 0) (sum / count).toInt() else Int.MAX_VALUE
+                } else {
+                    genericObstacleDistance
+                }
+                
+                val obstacleAlert = ttsAlertManager.process(
+                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
+                    dObj = obstacleDist,
+                    clockDirection = 12,
+                    objectLabel = if (wallDetected) "tembok" else "halangan",
+                    isMovingForward = isMovingForward,
+                    imuData = imuSnap
+                )
+                if (obstacleAlert != null) {
+                    ttsAlertManager.speak(obstacleAlert)
+                }
+                
+                val adaptiveT = if (isMovingForward) 1200 else 800
+                if (obstacleDist < adaptiveT) {
+                    closeThreatExists = true
+                }
+                if (obstacleDist < adaptiveT + TtsAlertManager.EPS_CLEAR_ZONE) {
+                    allClear = false
+                }
+            } else {
+                ttsAlertManager.process(
+                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
+                    dObj = 2000,
+                    clockDirection = 12,
+                    objectLabel = "tembok",
+                    isMovingForward = isMovingForward,
+                    imuData = imuSnap
+                )
+            }
+
+            val isDanger = closeThreatExists || !allClear
+            ttsAlertManager.smartNavigation.processNavigationState(
+                isDanger = isDanger,
+                isMovingForward = isMovingForward,
+                isTurning = isTurning,
+                isHeadRotating = isHeadRotating
+            )
+
+            if (closeThreatExists) {
+                isBlockedState = true
+            } else if (allClear && isBlockedState) {
+                isBlockedState = false
+            }
+        }
+        pingFormulaEH = System.currentTimeMillis() - startFormula
+        pingTotalTof = pingTofSmooth + pingFormulaEH
     }
 
     /** Menghitung dan memperbarui indikator kecepatan data (FPS) pada UI. */
