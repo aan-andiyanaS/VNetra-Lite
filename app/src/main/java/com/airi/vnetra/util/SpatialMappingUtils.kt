@@ -16,6 +16,9 @@ object SpatialMappingUtils {
     private const val CLOSE_DIST_MIN = 30
     private const val CLOSE_DIST_MAX = 2000
 
+    private val emaDistances = FloatArray(64) { -1f }
+    private const val EMA_ALPHA = 0.3f // ponytail: simple, fast smoothing
+
     data class ObstacleAnalysis(
         val type: String,       // "tembok" atau "halangan"
         val clockDirection: Int, // Arah jam (10, 11, 12, 1, 2)
@@ -66,8 +69,20 @@ object SpatialMappingUtils {
     private fun extractCloseCells(tofData: IntArray, thetaDeg: Float): List<Cell> {
         val cells = mutableListOf<Cell>()
         for (i in 0..63) {
-            val dist = tofData[i]
-            // Validasi noise pantulan acak, pastikan sel yang diambil rasional
+            val rawDist = tofData[i]
+            
+            val dist = if (rawDist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
+                if (emaDistances[i] < 0f) {
+                    emaDistances[i] = rawDist.toFloat()
+                } else {
+                    emaDistances[i] = (EMA_ALPHA * rawDist) + ((1f - EMA_ALPHA) * emaDistances[i])
+                }
+                emaDistances[i].toInt()
+            } else {
+                emaDistances[i] = -1f
+                rawDist
+            }
+
             if (dist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
                 cells.add(Cell(row = i / 8, col = i % 8, dist = dist))
             }

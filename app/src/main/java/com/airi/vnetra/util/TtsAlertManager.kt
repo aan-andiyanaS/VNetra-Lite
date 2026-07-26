@@ -138,6 +138,7 @@ class TtsAlertManager(private val context: Context) {
         clockDirection: Int,
         objectLabel: String = "rintangan",
         isMovingForward: Boolean = true,
+        isStationary: Boolean = false,
         imuData: FloatArray? = null
     ): String? {
         val alreadyAlerted = alertFlags[trackingId] ?: false
@@ -259,6 +260,14 @@ class TtsAlertManager(private val context: Context) {
                     Log.d(TAG, "Formula H Reset: Objek $trackingId bergerak (delta=$deltaD)")
                     return null
                 }
+                
+                if (isStationary && isMoving && deltaD > 30) {
+                    if (now - lastSpoken > 4000L) {
+                        lastSpokenTime[trackingId] = now
+                        Log.d(TAG, "Stationary Approaching Object Alert: id=$trackingId")
+                        return textToSpeak
+                    }
+                }
                 val isWall = trackingId == SpatialMappingUtils.WALL_TRACKING_ID
                 if (isWall && isMovingForward) {
                     if (now - lastSpoken > 1000L) {
@@ -358,12 +367,14 @@ class TtsAlertManager(private val context: Context) {
         private var lastClearTime = System.currentTimeMillis()
         private var hasGivenSecondClearWarning = true
         private var clearCandidateTime = 0L
+        private var dangerCandidateTime = 0L
 
         /** Mengevaluasi perubahan pada MPU6050 untuk memicu atau meredam peringatan. */
         fun processNavigationState(
             isDanger: Boolean,
             isMovingForward: Boolean,
             isTurning: Boolean,
+            isStationary: Boolean = false,
             isHeadRotating: Boolean = false
         ) {
             val now = System.currentTimeMillis()
@@ -372,55 +383,57 @@ class TtsAlertManager(private val context: Context) {
                 clearCandidateTime = 0L
 
                 if (currentState == NavState.PATH_CLEAR) {
-
                     if (isHeadRotating) return
-
-                    currentState = NavState.WALL_WARNING
-                    lastWarningTime = now
-                    if (!isTurning) {
-
-                        speak("Awas, tembok di depan")
-                    } else {
-
+                    
+                    if (dangerCandidateTime == 0L) {
+                        dangerCandidateTime = now
+                    } else if (now - dangerCandidateTime > 300L) {
+                        currentState = NavState.WALL_WARNING
+                        lastWarningTime = now
+                        if (!isTurning) {
+                            if (isMovingForward) {
+                                speak("Awas, tembok di depan")
+                            } else if (isStationary) {
+                                speak("Objek terdeteksi di depan")
+                            } else {
+                                speak("Awas, tembok di depan")
+                            }
+                        }
+                        dangerCandidateTime = 0L
                     }
                 } else {
-
+                    dangerCandidateTime = 0L
                     if (isMovingForward && !isTurning) {
-
-                        if (now - lastWarningTime > 1000L) {
+                        if (now - lastWarningTime > 2000L) {
                             speak("Awas, masih ada tembok")
                             lastWarningTime = now
                         }
                     }
-
+                    // Jika isStationary, HANYA SATU KALI, tidak diulang
                 }
             } else {
-
+                dangerCandidateTime = 0L
                 if (isHeadRotating) return
                 if (currentState == NavState.WALL_WARNING) {
-
                     if (clearCandidateTime == 0L) {
                         clearCandidateTime = now
-                    } else if (now - clearCandidateTime > 100L) {
+                    } else if (now - clearCandidateTime > 500L) {
                         currentState = NavState.PATH_CLEAR
                         lastClearTime = now
                         hasGivenSecondClearWarning = false
                         clearCandidateTime = 0L
-
-                        speak("Jalan di depan kosong")
+                        if (isMovingForward) {
+                            speak("Jalan di depan kosong")
+                        }
                     }
                 } else {
-
                     clearCandidateTime = 0L
-
                     if (!isMovingForward) {
-
                         if (!hasGivenSecondClearWarning && now - lastClearTime > 6000L) {
-                            speak("Jalan aman, silakan maju")
+                            // Diam, jangan berisik
                             hasGivenSecondClearWarning = true
                         }
                     } else {
-
                         lastClearTime = now
                         hasGivenSecondClearWarning = false
                     }
@@ -434,6 +447,7 @@ class TtsAlertManager(private val context: Context) {
             lastClearTime = System.currentTimeMillis()
             hasGivenSecondClearWarning = true
             clearCandidateTime = 0L
+            dangerCandidateTime = 0L
         }
     }
 

@@ -656,6 +656,7 @@ class StreamActivity : AppCompatActivity() {
         val yawRate = imuSnap?.getOrElse(4) { 0f } ?: 0f
         val isTurning = kotlin.math.abs(yawRate) > 10f
         val isHeadRotating = navigationCoordinator.isHeadRotating(imuSnap, 15f)
+        val isStationary = navigationCoordinator.isStationary
 
         if (isMovingForward && ::ttsAlertManager.isInitialized && ttsAlertManager.isMuted) {
             ttsAlertManager.isMuted = false
@@ -673,6 +674,7 @@ class StreamActivity : AppCompatActivity() {
                     clockDirection = terrainAnalysis.clockDirection,
                     objectLabel = terrainAnalysis.type,
                     isMovingForward = isMovingForward,
+                    isStationary = isStationary,
                     imuData = imuSnap
                 )
                 if (obstacleAlert != null) {
@@ -693,6 +695,7 @@ class StreamActivity : AppCompatActivity() {
                     clockDirection = 12,
                     objectLabel = "tembok",
                     isMovingForward = isMovingForward,
+                    isStationary = isStationary,
                     imuData = imuSnap
                 )
             }
@@ -702,6 +705,7 @@ class StreamActivity : AppCompatActivity() {
                 isDanger = isDanger,
                 isMovingForward = isMovingForward,
                 isTurning = isTurning,
+                isStationary = isStationary,
                 isHeadRotating = isHeadRotating
             )
             pingTts = System.currentTimeMillis() - ttsStart

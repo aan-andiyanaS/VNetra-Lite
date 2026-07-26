@@ -15,6 +15,9 @@ class NavigationCoordinator {
     var movingForwardConsecutiveFrames = 0
         private set
 
+    var isStationary = false
+        private set
+
     /** Memperbarui status pergerakan IMU (accelerometer/gyro). */
     fun updateMovementState(imuData: FloatArray?) {
         val pitchRate = imuData?.getOrElse(2) { 0f } ?: 0f
@@ -22,8 +25,10 @@ class NavigationCoordinator {
         val yawRate   = imuData?.getOrElse(4) { 0f } ?: 0f
         val aLinMag   = imuData?.getOrElse(5) { 0f } ?: 0f
 
-        val isHeadRotating = abs(pitchRate) > 5f || abs(yawRate) > 5f || abs(rollRate) > 5f
-        val isAccelerating = (aLinMag > 2.94f) && !isHeadRotating
+        val isHeadRotatingLocal = abs(pitchRate) > 5f || abs(yawRate) > 5f || abs(rollRate) > 5f
+        isStationary = (aLinMag <= 0.05f) && !isHeadRotatingLocal
+        
+        val isAccelerating = (aLinMag > 2.94f) && !isHeadRotatingLocal
         if (isAccelerating) {
             movingForwardConsecutiveFrames++
         } else {

@@ -177,6 +177,7 @@ static constexpr uint32_t POWER_SAVE_TIMEOUT = 30000;  // 30 detik tanpa client 
 volatile int unacked_frames = 0;
 volatile bool is_moving_fast = false;
 volatile unsigned long last_motion_time = 0;
+volatile float global_a_lin_mag = 0.0f;
 
 volatile uint32_t stat_frames_cam = 0;
 volatile uint32_t stat_frames_imu = 0;
@@ -852,6 +853,7 @@ void IMU_Task(void *pvParameters) {
     if (a_lin_dynamic < 0.0f) a_lin_dynamic = 0.0f; // Clamp lantai (Magnitudo Skalar tidak bisa negatif)
     
     float a_lin_mag = a_lin_dynamic;
+    global_a_lin_mag = a_lin_mag; // Share to other tasks
     // Deadzone/Noise Gate (a_lin_mag < 0.2f) telah DICABUT agar pergerakan mikro terdeteksi layaknya kecepatan dunia nyata.
 
 
@@ -899,12 +901,32 @@ void IMU_Task(void *pvParameters) {
 }
 
 void TOF_Task(void *pvParameters) {
+  static float ema_dist[64] = {0};
+  static bool ema_init[64] = {false};
+  const float ema_alpha = 0.3f;
+
   for (;;) {
     bool gotData = false;
     if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
         gotData = myImager.isDataReady();
         if (gotData) {
             myImager.getRangingData(&measurementData);
+            for (int i = 0; i < 64; i++) {
+                int16_t raw_dist = measurementData.distance_mm[i];
+                uint8_t st = measurementData.target_status[i];
+                bool statusOk = (st == 5 || st == 6 || st == 9 || st == 10 || st == 12 || st == 13);
+                if (statusOk && raw_dist >= 30 && raw_dist <= 4000) {
+                    if (!ema_init[i]) {
+                        ema_dist[i] = raw_dist;
+                        ema_init[i] = true;
+                    } else {
+                        ema_dist[i] = ema_alpha * raw_dist + (1.0f - ema_alpha) * ema_dist[i];
+                    }
+                    measurementData.distance_mm[i] = (int16_t)ema_dist[i];
+                } else {
+                    ema_init[i] = false; // Reset jika tidak valid
+                }
+            }
         }
         xSemaphoreGive(i2c_mutex);
     }
@@ -924,26 +946,44 @@ void TOF_Task(void *pvParameters) {
             }
         }
         
-        if (minDist < 2000) {
-            if (minDist < prevMinDist - 50) {
-                // Mendekat ke objek/tembok
-                buzzerBeep(20); delay(15);
-                buzzerBeep(20); delay(15);
-                buzzerBeep(20);
-                prevMinDist = minDist;
-            } else if (minDist > prevMinDist + 50) {
-                // Menjauh dari objek (mencari jalan)
-                buzzerBeep(100); delay(100);
-                buzzerBeep(100);
-                prevMinDist = minDist;
+        if (global_a_lin_mag <= 0.05f) {
+            // Stationary Mode
+            if (minDist < 2000) {
+                if (minDist < prevMinDist - 50) { // Hanya merespon jika ada yang mendekat
+                    static unsigned long lastStationaryWarning = 0;
+                    if (millis() - lastStationaryWarning > 4000) { // Peringatan tidak di-spam
+                        buzzerBeep(20); delay(15);
+                        buzzerBeep(20);
+                        lastStationaryWarning = millis();
+                    }
+                    prevMinDist = minDist;
+                }
+            } else {
+                prevMinDist = 2000;
             }
         } else {
-            if (prevMinDist < 2000) {
-                // Objek hilang (jalan kosong)
-                buzzerBeep(100); delay(100);
-                buzzerBeep(100);
+            // Moving Mode
+            if (minDist < 2000) {
+                if (minDist < prevMinDist - 50) {
+                    // Mendekat ke objek/tembok
+                    buzzerBeep(20); delay(15);
+                    buzzerBeep(20); delay(15);
+                    buzzerBeep(20);
+                    prevMinDist = minDist;
+                } else if (minDist > prevMinDist + 50) {
+                    // Menjauh dari objek (mencari jalan)
+                    buzzerBeep(100); delay(100);
+                    buzzerBeep(100);
+                    prevMinDist = minDist;
+                }
+            } else {
+                if (prevMinDist < 2000) {
+                    // Objek hilang (jalan kosong)
+                    buzzerBeep(100); delay(100);
+                    buzzerBeep(100);
+                }
+                prevMinDist = 2000;
             }
-            prevMinDist = 2000;
         }
     } else if (gotData && udpClientReady && !powerSaveMode) {
         uint16_t numCells = 64; // Statically 8x8
