@@ -829,7 +829,7 @@ class StreamActivity : AppCompatActivity() {
         badgeSwipeRevealed = false
         runCatching {
             binding.btnAkhiriBadge.visibility   = View.GONE
-            binding.tvConnectedBadge.text       = "● Menerima data dari ESP32-S3  ‹ geser"
+            binding.tvConnectedBadge.text       = "● Sensor VNetra Aktif  ‹ geser"
             binding.tvConnectedBadge.visibility = View.VISIBLE
         }
     }
@@ -895,7 +895,17 @@ class StreamActivity : AppCompatActivity() {
         
         val totalPing = hardware + serial + algo + tts + btLatency
 
-        val text = "Total Latency: $totalPing ms"
+        val text = """
+            === LATENCY PING (SKRIPSI) ===
+            Sensor HW : $hardware ms
+            Serial    : $serial ms
+            Algoritma : $algo ms
+            Audio TTS : $tts ms
+            Bluetooth : $btValue
+            ------------------------------
+            TOTAL PING: $totalPing ms
+            ==============================
+        """.trimIndent()
         runCatching {
             binding.tvLatencyMonitor.text = text
         }
@@ -923,7 +933,7 @@ class StreamActivity : AppCompatActivity() {
                 binding.tvImuRoll.text  = "Roll:  —"
                 binding.tvImuYaw.text   = "Yaw:   —"
                 binding.tvImuAccel.text = "Accel: —"
-                binding.tvLatencyMonitor.text = "Total Latency: —"
+                binding.tvLatencyMonitor.text = "=== LATENCY PING (SKRIPSI) ===\nSensor HW : —\nSerial    : —\nAlgoritma : —\nAudio TTS : —\nBluetooth : —\n------------------------------\nTOTAL PING: —\n=============================="
                 if (::tofGridRenderer.isInitialized) {
                     tofGridRenderer.clearGrid()
                 }

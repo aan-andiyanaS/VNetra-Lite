@@ -292,7 +292,7 @@
                 android:text="&#9679; Menerima data dari ESP32-S3  ‹ geser"
                 android:textColor="#FFFFFF"
                 android:textSize="11sp"
-                android:background="@drawable/badge_connected_bg"
+                android:background="#AA000000"
                 android:visibility="gone" />
         </FrameLayout>
 
