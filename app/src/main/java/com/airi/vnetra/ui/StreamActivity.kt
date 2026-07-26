@@ -228,8 +228,7 @@ class StreamActivity : AppCompatActivity() {
 
     private val HOLDOVER_FRAMES = 15
 
-    private var frameCount     = 0
-    private var fpsWindowStart = 0L
+
 
     @Volatile private var isAkhiring = false
 
@@ -722,21 +721,6 @@ class StreamActivity : AppCompatActivity() {
         pingAlgoritma = System.currentTimeMillis() - startAlgo
     }
 
-    /** Menghitung dan memperbarui indikator kecepatan data (FPS) pada UI. */
-    private fun updateFpsCounter(frameBytes: Int) {
-        if (isDestroyed || isFinishing) return
-        frameCount++
-        val now     = System.currentTimeMillis()
-        val elapsed = now - fpsWindowStart
-        if (elapsed >= 1000) {
-            runCatching {
-                binding.tvStreamStatus.text =
-                    "%.1f FPS  •  %d KB/frame".format(frameCount * 1000f / elapsed, frameBytes / 1024)
-            }
-            frameCount     = 0
-            fpsWindowStart = now
-        }
-    }
 
     /** Menampilkan popup peringatan konfirmasi sebelum pengguna memutus koneksi. */
     private fun konfirmasiAkhiriProses() {
