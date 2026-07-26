@@ -149,11 +149,8 @@ class StreamActivity : AppCompatActivity() {
             val elapsedSec = (System.currentTimeMillis() - sessionStart) / 1000
             
             if (!headerPrinted) {
-                // Cetak Header CSV 2-Baris (Untuk memudahkan grouping di Excel)
-                // Baris 1: Kategori Besar
-                Log.i(TAG, "METADATA,METADATA,MINIMUM,MINIMUM,MINIMUM,MINIMUM,MINIMUM,MINIMUM,AVERAGE,AVERAGE,AVERAGE,AVERAGE,AVERAGE,AVERAGE,MAXIMUM,MAXIMUM,MAXIMUM,MAXIMUM,MAXIMUM,MAXIMUM")
-                // Baris 2: Nama Metrik
-                Log.i(TAG, "Time(s),N,Sensor,Serial,Algo,TTS,BT,Total,Sensor,Serial,Algo,TTS,BT,Total,Sensor,Serial,Algo,TTS,BT,Total")
+                // Cetak Header CSV Tunggal (Singkat dan Jelas)
+                Log.i(TAG, "Time(s),N,MIN_Sensor,MIN_Serial,MIN_Algo,MIN_TTS,MIN_BT,MIN_Total,AVG_Sensor,AVG_Serial,AVG_Algo,AVG_TTS,AVG_BT,AVG_Total,MAX_Sensor,MAX_Serial,MAX_Algo,MAX_TTS,MAX_BT,MAX_Total")
                 headerPrinted = true
             }
 
