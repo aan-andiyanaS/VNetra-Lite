@@ -949,13 +949,18 @@ void TOF_Task(void *pvParameters) {
         if (global_a_lin_mag <= 0.05f) {
             // Stationary Mode
             if (minDist < 2000) {
-                if (minDist < prevMinDist - 50) { // Hanya merespon jika ada yang mendekat
+                if (minDist < prevMinDist - 80) { // Hysteresis didekatkan (lebih tahan noise)
                     static unsigned long lastStationaryWarning = 0;
-                    if (millis() - lastStationaryWarning > 4000) { // Peringatan tidak di-spam
+                    if (millis() - lastStationaryWarning > 4000) {
                         buzzerBeep(20); delay(15);
                         buzzerBeep(20);
                         lastStationaryWarning = millis();
                     }
+                    prevMinDist = minDist;
+                } else if (minDist > prevMinDist + 200) { 
+                    // [BUG FIX] Biarkan prevMinDist naik saat objek menjauh,
+                    // tapi dengan hysteresis besar (200mm) untuk menghindari noise flutter.
+                    // Jika tidak ada ini, kacamata akan "tuli" setelah objek paling dekat pergi.
                     prevMinDist = minDist;
                 }
             } else {
@@ -964,14 +969,15 @@ void TOF_Task(void *pvParameters) {
         } else {
             // Moving Mode
             if (minDist < 2000) {
-                if (minDist < prevMinDist - 50) {
-                    // Mendekat ke objek/tembok
+                if (minDist < prevMinDist - 80) {
+                    // Mendekat ke objek/tembok (Hysteresis 80mm)
                     buzzerBeep(20); delay(15);
                     buzzerBeep(20); delay(15);
                     buzzerBeep(20);
                     prevMinDist = minDist;
-                } else if (minDist > prevMinDist + 50) {
-                    // Menjauh dari objek (mencari jalan)
+                } else if (minDist > prevMinDist + 150) {
+                    // Menjauh dari objek (mencari jalan). Hysteresis lebih besar (150mm) 
+                    // agar tidak gampang memicu bunyi "menjauh" hanya karena noise.
                     buzzerBeep(100); delay(100);
                     buzzerBeep(100);
                     prevMinDist = minDist;
