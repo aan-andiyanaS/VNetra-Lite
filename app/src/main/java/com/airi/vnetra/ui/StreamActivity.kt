@@ -42,7 +42,6 @@ import com.airi.vnetra.util.TofDepthEstimator
 import com.airi.vnetra.util.TtsAlertManager
 import com.airi.vnetra.util.SpatialMappingUtils
 import com.airi.vnetra.util.SessionManager
-import com.airi.vnetra.util.DatasetManager
 import com.airi.vnetra.util.NavigationCoordinator
 import com.airi.vnetra.util.ToFGridRenderer
 import kotlinx.coroutines.Dispatchers
@@ -72,9 +71,7 @@ class StreamActivity : AppCompatActivity() {
 
     private lateinit var binding:        ActivityStreamBinding
     private lateinit var sessionManager: SessionManager
-    private lateinit var datasetManager: DatasetManager
 
-    private var isDatasetModeActive      = false
     private var streamService:   StreamService? = null
     private var isBound          = false
     private var frameCollectJob: Job? = null
@@ -257,7 +254,6 @@ class StreamActivity : AppCompatActivity() {
         }
 
         sessionManager = SessionManager(this)
-        datasetManager = DatasetManager(this)
 
         supportActionBar?.title = "Live Camera — $ipAddress"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -406,27 +402,6 @@ class StreamActivity : AppCompatActivity() {
 
         binding.btnAkhiriBadge.setOnClickListener {
             if (!isDestroyed && !isFinishing) konfirmasiAkhiriProses()
-        }
-
-
-        binding.btnModeDataset.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (isChecked && Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 101)
-                    buttonView.isChecked = false
-                    return@setOnCheckedChangeListener
-                }
-            }
-
-            isDatasetModeActive = isChecked
-            if (::ttsAlertManager.isInitialized) {
-                ttsAlertManager.isMuted = isChecked
-                if (isChecked) {
-                    Toast.makeText(this, "Mode Dataset Aktif. TTS dimatikan.", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "Mode Dataset Nonaktif. TTS menyala kembali.", Toast.LENGTH_SHORT).show()
-                }
-            }
         }
     }
 

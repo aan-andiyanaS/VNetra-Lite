@@ -900,8 +900,52 @@ void IMU_Task(void *pvParameters) {
 
 void TOF_Task(void *pvParameters) {
   for (;;) {
-    // ── Handle mode change request ──────────────────────────────────────────
-    if (gotData && udpClientReady && !powerSaveMode) {
+    bool gotData = false;
+    if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
+        gotData = myImager.checkDataReady();
+        if (gotData) {
+            myImager.getRangingData(&measurementData);
+        }
+        xSemaphoreGive(i2c_mutex);
+    }
+
+    bool isOffline = (!udpClientReady || powerSaveMode);
+
+    if (gotData && isOffline) {
+        static int prevMinDist = 2000;
+        int minDist = 2000;
+        
+        for (int i = 0; i < 64; i++) {
+            int16_t dist = measurementData.distance_mm[i];
+            uint8_t st = measurementData.target_status[i];
+            bool statusOk = (st == 5 || st == 6 || st == 9 || st == 10 || st == 12 || st == 13);
+            if (statusOk && dist >= 30 && dist < minDist) {
+                minDist = dist;
+            }
+        }
+        
+        if (minDist < 2000) {
+            if (minDist < prevMinDist - 50) {
+                // Mendekat ke objek/tembok
+                buzzerBeep(20); delay(15);
+                buzzerBeep(20); delay(15);
+                buzzerBeep(20);
+                prevMinDist = minDist;
+            } else if (minDist > prevMinDist + 50) {
+                // Menjauh dari objek (mencari jalan)
+                buzzerBeep(100); delay(100);
+                buzzerBeep(100);
+                prevMinDist = minDist;
+            }
+        } else {
+            if (prevMinDist < 2000) {
+                // Objek hilang (jalan kosong)
+                buzzerBeep(100); delay(100);
+                buzzerBeep(100);
+            }
+            prevMinDist = 2000;
+        }
+    } else if (gotData && udpClientReady && !powerSaveMode) {
         uint16_t numCells = 64; // Statically 8x8
         uint16_t distSize = numCells * 2;             // int16_t per cell
         uint16_t statSize = numCells;                 // 1 byte status per cell

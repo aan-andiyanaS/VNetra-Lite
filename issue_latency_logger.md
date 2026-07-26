@@ -1,22 +1,22 @@
-# Issue: Implementasi Background Latency Logger untuk Pengujian Skripsi
+# Issue: Feature: Background Latency Logger for Thesis Testing
 
-## Deskripsi
-Dalam pengujian lapangan untuk skripsi, metrik latensi *end-to-end* (E2E) perlu dicatat secara konsisten selama sesi berjalan untuk keperluan perhitungan statistik (rata-rata, min, maks, standar deviasi). Menampilkan nilai metrik secara *real-time* di UI tidak cukup untuk analisis data yang masif. 
+## Description
+During field testing for the thesis, end-to-end (E2E) latency metrics need to be recorded consistently over running sessions to calculate statistics (average, min, max, standard deviation). Displaying the metrics in real-time on the UI is not sufficient for massive data analysis.
 
-Oleh karena itu, diperlukan sistem *logger* yang berjalan di latar belakang tanpa mengganggu atau membebani performa aplikasi utama, namun tetap dapat mengekspor data yang dibutuhkan.
+Therefore, a background logger system is needed to run without interrupting or overloading the main application performance, while still being able to export the required data.
 
-## Solusi yang Diimplementasikan
-- **Penambahan `LatencyLogger`**: Membuat kelas *inner* di `StreamActivity.kt` khusus untuk menangani *logging* latensi.
-- **Ring-Buffer (1000 Sampel)**: Setiap *frame* data yang diproses, nilai latensinya (Sensor, Serial, Algoritma, TTS, Bluetooth, dan Total) akan direkam ke memori sementara (*buffer*).
-- **Auto-Flush 5 Detik**: Menggunakan *coroutine timer* untuk mencetak ringkasan metrik secara berkala ke Logcat (dengan tag `LAT`) setiap 5 detik agar memori tidak bocor.
-- **Final Flush**: Menambahkan *hook* ke metode `akhiriProses()` agar sistem mencetak sisa *buffer* latensi keseluruhan ketika pengguna menutup aplikasi.
+## Implemented Solution
+- **Added `LatencyLogger`**: Created an inner class in `StreamActivity.kt` specifically to handle latency logging.
+- **Ring-Buffer (1000 Samples)**: For each processed data frame, its latency values (Sensor, Serial, Algorithm, TTS, Bluetooth, and Total) will be recorded into a temporary memory buffer.
+- **5-Second Auto-Flush**: Implemented a coroutine timer to print a summary of the metrics periodically to Logcat (using the `LAT` tag) every 5 seconds to prevent memory leaks.
+- **Final Flush**: Added a hook to the `akhiriProses()` method so the system prints the remaining overall latency buffer when the user closes the application.
 
-## Cara Mengekstrak Data
-Pada PC yang terhubung via kabel data/Wi-Fi Debugging:
+## How to Extract Data
+On a PC connected via data cable or Wi-Fi Debugging:
 ```powershell
-adb logcat -s LAT > latency_sesi.txt
+adb logcat -s LAT > latency_session.txt
 ```
-Data ini kemudian dapat langsung dibuka dan diolah dengan Excel atau Python untuk laporan skripsi.
+This data can then be directly opened and processed with Excel or Python for the thesis report.
 
-## File yang Diubah
+## Modified Files
 - `app/src/main/java/com/airi/vnetra/ui/StreamActivity.kt`
