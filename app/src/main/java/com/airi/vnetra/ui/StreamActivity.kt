@@ -149,29 +149,33 @@ class StreamActivity : AppCompatActivity() {
             val elapsedSec = (System.currentTimeMillis() - sessionStart) / 1000
             
             if (!headerPrinted) {
-                // Cetak Header CSV
-                Log.i(TAG, "Time(s),N,SensorMin,SensorAvg,SensorMax,SerialMin,SerialAvg,SerialMax,AlgoMin,AlgoAvg,AlgoMax,TTSMin,TTSAvg,TTSMax,BTMin,BTAvg,BTMax,TotalMin,TotalAvg,TotalMax")
+                // Cetak Header CSV (3 Kelompok Besar: MIN, AVG, MAX)
+                Log.i(TAG, "Time(s),N,Sensor_Min,Serial_Min,Algo_Min,TTS_Min,BT_Min,Total_Min,Sensor_Avg,Serial_Avg,Algo_Avg,TTS_Avg,BT_Avg,Total_Avg,Sensor_Max,Serial_Max,Algo_Max,TTS_Max,BT_Max,Total_Max")
                 headerPrinted = true
             }
 
-            val sensor = getStat(bufHardware)
-            val serial = getStat(bufSerial)
-            val algo   = getStat(bufAlgo)
-            val tts    = getStat(bufTts)
-            val bt     = getStat(bufBt)
-            val total  = getStat(bufTotal)
+            // --- Ambil Data ---
+            val senMin = getMin(bufHardware); val senAvg = getAvg(bufHardware); val senMax = getMax(bufHardware)
+            val serMin = getMin(bufSerial);   val serAvg = getAvg(bufSerial);   val serMax = getMax(bufSerial)
+            val algMin = getMin(bufAlgo);     val algAvg = getAvg(bufAlgo);     val algMax = getMax(bufAlgo)
+            val ttsMin = getMin(bufTts);      val ttsAvg = getAvg(bufTts);      val ttsMax = getMax(bufTts)
+            val btMin  = getMin(bufBt);       val btAvg  = getAvg(bufBt);       val btMax  = getMax(bufBt)
+            val totMin = getMin(bufTotal);    val totAvg = getAvg(bufTotal);    val totMax = getMax(bufTotal)
+
+            // --- Format CSV Kelompok MIN ---
+            val groupMin = "$senMin,$serMin,$algMin,$ttsMin,$btMin,$totMin"
+            // --- Format CSV Kelompok AVG ---
+            val groupAvg = "$senAvg,$serAvg,$algAvg,$ttsAvg,$btAvg,$totAvg"
+            // --- Format CSV Kelompok MAX ---
+            val groupMax = "$senMax,$serMax,$algMax,$ttsMax,$btMax,$totMax"
 
             // Cetak Baris Data CSV
-            Log.i(TAG, "$elapsedSec,$sampleCount,$sensor,$serial,$algo,$tts,$bt,$total")
+            Log.i(TAG, "$elapsedSec,$sampleCount,$groupMin,$groupAvg,$groupMax")
         }
 
-        private fun getStat(buf: ArrayDeque<Long>): String {
-            if (buf.isEmpty()) return "0,0,0"
-            val avg = buf.average().toLong()
-            val min = buf.min()
-            val max = buf.max()
-            return "$min,$avg,$max"
-        }
+        private fun getMin(buf: ArrayDeque<Long>) = if (buf.isEmpty()) 0 else buf.min()
+        private fun getAvg(buf: ArrayDeque<Long>) = if (buf.isEmpty()) 0 else buf.average().toLong()
+        private fun getMax(buf: ArrayDeque<Long>) = if (buf.isEmpty()) 0 else buf.max()
 
         /** Cetak ringkasan final saat sesi berakhir. */
         fun finalFlush() {
