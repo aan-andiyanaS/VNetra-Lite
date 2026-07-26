@@ -141,25 +141,36 @@ class StreamActivity : AppCompatActivity() {
             }
         }
 
-        /** Mencetak ringkasan statistik ke Logcat. */
+        private var headerPrinted = false
+
+        /** Mencetak ringkasan statistik ke Logcat dalam format CSV. */
         fun flush() {
+            if (bufTotal.isEmpty()) return
             val elapsedSec = (System.currentTimeMillis() - sessionStart) / 1000
-            Log.i(TAG, "===== LATENCY LOG [T+${elapsedSec}s | N=$sampleCount] =====")
-            logStat("Sensor    ", bufHardware)
-            logStat("Serial    ", bufSerial)
-            logStat("Algoritma ", bufAlgo)
-            logStat("TTS       ", bufTts)
-            logStat("Bluetooth ", bufBt)
-            logStat("TOTAL E2E ", bufTotal)
-            Log.i(TAG, "========================================================")
+            
+            if (!headerPrinted) {
+                // Cetak Header CSV
+                Log.i(TAG, "Time(s),N,SensorMin,SensorAvg,SensorMax,SerialMin,SerialAvg,SerialMax,AlgoMin,AlgoAvg,AlgoMax,TTSMin,TTSAvg,TTSMax,BTMin,BTAvg,BTMax,TotalMin,TotalAvg,TotalMax")
+                headerPrinted = true
+            }
+
+            val sensor = getStat(bufHardware)
+            val serial = getStat(bufSerial)
+            val algo   = getStat(bufAlgo)
+            val tts    = getStat(bufTts)
+            val bt     = getStat(bufBt)
+            val total  = getStat(bufTotal)
+
+            // Cetak Baris Data CSV
+            Log.i(TAG, "$elapsedSec,$sampleCount,$sensor,$serial,$algo,$tts,$bt,$total")
         }
 
-        private fun logStat(label: String, buf: ArrayDeque<Long>) {
-            if (buf.isEmpty()) return
+        private fun getStat(buf: ArrayDeque<Long>): String {
+            if (buf.isEmpty()) return "0,0,0"
             val avg = buf.average().toLong()
             val min = buf.min()
             val max = buf.max()
-            Log.i(TAG, "  $label | avg=${avg}ms  min=${min}ms  max=${max}ms")
+            return "$min,$avg,$max"
         }
 
         /** Cetak ringkasan final saat sesi berakhir. */
