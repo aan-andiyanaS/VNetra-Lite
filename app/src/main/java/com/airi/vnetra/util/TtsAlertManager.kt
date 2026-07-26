@@ -158,6 +158,7 @@ class TtsAlertManager(private val context: Context) {
                     if (dt < 0.001f) dt = 0.001f
                     if (dt > 0.5f) dt = 0.5f
 
+                    // ponytail: dObj dalam mm (bukan m) — hasil perkalian besar, tapi T di-cap 4000ms
                     val vHead = vHeadBase * dObj
 
                     var vRaw = ((dPrev - dObj) / dt) - vHead
@@ -260,7 +261,6 @@ class TtsAlertManager(private val context: Context) {
                 }
                 val isWall = trackingId == SpatialMappingUtils.WALL_TRACKING_ID
                 if (isWall && isMovingForward) {
-                    val lastSpoken = lastSpokenTime[trackingId] ?: 0L
                     if (now - lastSpoken > 1000L) {
                         lastSpokenTime[trackingId] = now
                         Log.d(TAG, "Wall Spam (Moving Forward): id=$trackingId")
@@ -269,7 +269,6 @@ class TtsAlertManager(private val context: Context) {
                 }
 
                 if (isPaving && !isMovingForward) {
-                    val lastSpoken = lastSpokenTime[trackingId] ?: 0L
                     if (now - lastSpoken > 6000L) {
                         lastSpokenTime[trackingId] = now
                         Log.d(TAG, "Stationary Paving Reminder: id=$trackingId")

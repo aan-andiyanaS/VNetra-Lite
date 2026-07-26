@@ -74,7 +74,6 @@ class StreamActivity : AppCompatActivity() {
 
     private var streamService:   StreamService? = null
     private var isBound          = false
-    private var frameCollectJob: Job? = null
     private var stateCollectJob: Job? = null
     private var imuCollectJob:   Job? = null
     private var tofCollectJob:   Job? = null
@@ -188,9 +187,8 @@ class StreamActivity : AppCompatActivity() {
 
     @Volatile private var isAkhiring = false
 
-    private var bufferIndex  = 0
-
-    private val isInferencing = java.util.concurrent.atomic.AtomicBoolean(false)
+    // ponytail: cache BT status daripada query AudioManager 2x setiap 200ms
+    @Volatile private var hasBluetooth: Boolean = false
 
     @Volatile private var cachedTofGridSize = 0
 
@@ -448,9 +446,7 @@ class StreamActivity : AppCompatActivity() {
                     StreamService.ConnectionState.CONNECTED -> {
                         showBadgeSafe()
                         showStreamStateSafe(StreamState.STREAMING)
-                        startCollectingFrames()
                         startCollectingSensors()
-
                     }
                     StreamService.ConnectionState.CONNECTING -> {
                         hideBadgeSafe()
@@ -465,18 +461,7 @@ class StreamActivity : AppCompatActivity() {
         }
     }
 
-    /** Mengumpulkan aliran data visual/ToF dan memicunya untuk dirender ke grid. */
-    private fun startCollectingFrames() {
 
-        val svc = streamService ?: return
-
-        frameCollectJob?.cancel()
-        frameCount     = 0
-        fpsWindowStart = System.currentTimeMillis()
-
-        frameCollectJob = lifecycleScope.launch(Dispatchers.Default) {
-        }
-    }
 
     /** Mengumpulkan aliran data IMU dari service latar belakang untuk koordinasi navigasi. */
     private fun startCollectingSensors() {
@@ -500,17 +485,18 @@ class StreamActivity : AppCompatActivity() {
         }
 
         // Log periodik setiap 5 detik ke Logcat (tag: LAT)
+        // Sekaligus update cache hasBluetooth sekali per iterasi
         lifecycleScope.launch(Dispatchers.Default) {
             while (isActive) {
                 kotlinx.coroutines.delay(200)
-                val hasBt = run {
+                hasBluetooth = run {
                     val am = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
                     am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
                         it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                         it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                     }
                 }
-                val btVal = if (hasBt) 150L else 0L
+                val btVal = if (hasBluetooth) 150L else 0L
                 val total = pingHardware + pingSerialTransmisi + pingAlgoritma + pingTts + btVal
                 latencyLogger.record(
                     hw     = pingHardware,
@@ -830,7 +816,6 @@ class StreamActivity : AppCompatActivity() {
 
     /** Membatalkan seluruh coroutine/job yang sedang berjalan. */
     private fun cancelAllJobs() {
-        runCatching { frameCollectJob?.cancel() };   frameCollectJob   = null
         runCatching { stateCollectJob?.cancel() };   stateCollectJob   = null
         runCatching { imuCollectJob?.cancel() };     imuCollectJob     = null
         runCatching { tofCollectJob?.cancel() };     tofCollectJob     = null
@@ -846,12 +831,6 @@ class StreamActivity : AppCompatActivity() {
         val serial = pingSerialTransmisi
         val algo = pingAlgoritma
         val tts = pingTts
-        
-        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-        val hasBluetooth = audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
-            it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
-            it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-        }
         
         val btLatency = if (hasBluetooth) 150L else 0L
         val btValue = if (hasBluetooth) "$btLatency ms" else "null"
