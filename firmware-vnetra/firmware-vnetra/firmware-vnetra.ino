@@ -1320,9 +1320,14 @@ void handleStatsAndHeartbeat(uint32_t nowMs) {
     static uint32_t lastHbeat = 0;
     if (nowMs - lastHbeat >= WS_PING_INTERVAL) {
         lastHbeat = nowMs;
-        Serial.printf("[STAT] Heap: %u B | WS clients: %u | PowerSave: %s\n",
-            esp_get_free_heap_size(), ws.count(), powerSaveMode ? "ON" : "OFF");
-        Serial.printf("       [DATA SENT] HBEAT: %u | IMU: %u | TOF: %u\n", stat_frames_hbeat, stat_frames_imu, stat_frames_tof);
+        Serial.println("\n--- [LAPORAN KINERJA (10 Detik Terakhir)] ---");
+        Serial.printf("  Status Jaringan  : Klien Terhubung = %u | Mode Hemat Daya = %s\n", ws.count(), powerSaveMode ? "AKTIF" : "NONAKTIF");
+        Serial.printf("  Sisa Memori      : %u Bytes\n", esp_get_free_heap_size());
+        Serial.println("  Paket Terkirim   :");
+        Serial.printf("    - Sinyal Jantung (HBEAT) : %u paket\n", stat_frames_hbeat);
+        Serial.printf("    - Sensor Kepala (IMU)    : %u paket\n", stat_frames_imu);
+        Serial.printf("    - Sensor Jarak (ToF)     : %u paket\n", stat_frames_tof);
+        Serial.println("---------------------------------------------");
         
         stat_frames_hbeat = 0; stat_frames_imu = 0; stat_frames_tof = 0;
 
