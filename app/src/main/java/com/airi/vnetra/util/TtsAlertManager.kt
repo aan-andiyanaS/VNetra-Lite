@@ -383,7 +383,7 @@ class TtsAlertManager(private val context: Context) {
                 clearCandidateTime = 0L
 
                 if (currentState == NavState.PATH_CLEAR) {
-                    if (isHeadRotating) return
+                    if (isHeadRotating || isStationary) return
                     
                     if (dangerCandidateTime == 0L) {
                         dangerCandidateTime = now
@@ -393,9 +393,7 @@ class TtsAlertManager(private val context: Context) {
                         if (!isTurning) {
                             if (isMovingForward) {
                                 speak("Awas, tembok di depan")
-                            } else if (isStationary) {
-                                speak("Objek terdeteksi di depan")
-                            } else {
+                            } else if (!isStationary) {
                                 speak("Awas, tembok di depan")
                             }
                         }

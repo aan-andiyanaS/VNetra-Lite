@@ -700,7 +700,13 @@ class StreamActivity : AppCompatActivity() {
                 )
             }
 
-            val isDanger = closeThreatExists || !allClear
+            if (closeThreatExists) {
+                isBlockedState = true
+            } else if (allClear && isBlockedState) {
+                isBlockedState = false
+            }
+
+            val isDanger = isBlockedState
             ttsAlertManager.smartNavigation.processNavigationState(
                 isDanger = isDanger,
                 isMovingForward = isMovingForward,
@@ -709,12 +715,6 @@ class StreamActivity : AppCompatActivity() {
                 isHeadRotating = isHeadRotating
             )
             pingTts = System.currentTimeMillis() - ttsStart
-
-            if (closeThreatExists) {
-                isBlockedState = true
-            } else if (allClear && isBlockedState) {
-                isBlockedState = false
-            }
         }
         pingAlgoritma = System.currentTimeMillis() - startAlgo
     }
