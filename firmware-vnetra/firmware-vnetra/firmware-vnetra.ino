@@ -902,7 +902,7 @@ void TOF_Task(void *pvParameters) {
   for (;;) {
     bool gotData = false;
     if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
-        gotData = myImager.checkDataReady();
+        gotData = myImager.isDataReady();
         if (gotData) {
             myImager.getRangingData(&measurementData);
         }
@@ -958,7 +958,7 @@ void TOF_Task(void *pvParameters) {
           uint64_t ts_us = esp_timer_get_time();
           tof_buf[0] = FRAME_TYPE_TOF;
           memcpy(tof_buf + 1, &ts_us, 8);
-          tof_buf[9] = curRes;  // resolusi (4 atau 8)
+          tof_buf[9] = 8;  // resolusi selalu 8x8 (statically set)
 
           // [M2] Filter target_status sebelum dikirim ke Android.
           // Status yang diterima sebagai data VALID:
@@ -1009,11 +1009,6 @@ void TOF_Task(void *pvParameters) {
           AsyncUDPMessage tof_msg(totalSize);
           tof_msg.write(tof_buf, totalSize);
           udpSensor.sendTo(tof_msg, activeClientIp, UDP_TARGET_PORT);
-        }
-      }
-
-      if (gotData) {
-        // Auto-Switch logic removed. Statically 8x8.
         }
     }
     vTaskDelay(pdMS_TO_TICKS(10));

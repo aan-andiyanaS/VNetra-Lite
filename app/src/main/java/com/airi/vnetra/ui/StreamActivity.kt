@@ -575,6 +575,10 @@ class StreamActivity : AppCompatActivity() {
                     val (smoothed, holdover) = processTofData(tofData, localSmoothed, localHoldover)
                     localSmoothed = smoothed
                     localHoldover = holdover
+
+                    pingHardware = 15L
+                    val wsPing = svc.pingWebsocketFlow.value
+                    pingSerialTransmisi = if (wsPing > 0) wsPing else 5L
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -659,6 +663,7 @@ class StreamActivity : AppCompatActivity() {
         }
 
         if (::ttsAlertManager.isInitialized) {
+            val ttsStart = System.currentTimeMillis()
             val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData, thetaDeg)
 
             if (terrainAnalysis != null) {
@@ -699,6 +704,7 @@ class StreamActivity : AppCompatActivity() {
                 isTurning = isTurning,
                 isHeadRotating = isHeadRotating
             )
+            pingTts = System.currentTimeMillis() - ttsStart
 
             if (closeThreatExists) {
                 isBlockedState = true
