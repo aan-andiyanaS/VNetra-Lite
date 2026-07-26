@@ -126,6 +126,7 @@
                 android:textColor="#4FC3F7"
                 android:textSize="9sp"
                 android:textStyle="bold"
+                android:fontFamily="monospace"
                 android:layout_marginBottom="4dp" />
 
             <TextView

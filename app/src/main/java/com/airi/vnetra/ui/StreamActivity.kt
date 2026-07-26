@@ -880,7 +880,7 @@ class StreamActivity : AppCompatActivity() {
         val totalPing = hardware + serial + algo + tts + btLatency
 
         val text = """
-            === LATENCY PING (SKRIPSI) ===
+            === LATENCY PING ===
             Sensor HW : $hardware ms
             Serial    : $serial ms
             Algoritma : $algo ms
@@ -917,7 +917,7 @@ class StreamActivity : AppCompatActivity() {
                 binding.tvImuRoll.text  = "Roll:  —"
                 binding.tvImuYaw.text   = "Yaw:   —"
                 binding.tvImuAccel.text = "Accel: —"
-                binding.tvLatencyMonitor.text = "=== LATENCY PING (SKRIPSI) ===\nSensor HW : —\nSerial    : —\nAlgoritma : —\nAudio TTS : —\nBluetooth : —\n------------------------------\nTOTAL PING: —\n=============================="
+                binding.tvLatencyMonitor.text = "=== LATENCY PING ===\nSensor HW : —\nSerial    : —\nAlgoritma : —\nAudio TTS : —\nBluetooth : —\n------------------------------\nTOTAL PING: —\n=============================="
                 if (::tofGridRenderer.isInitialized) {
                     tofGridRenderer.clearGrid()
                 }
