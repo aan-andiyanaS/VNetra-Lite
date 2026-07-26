@@ -228,7 +228,9 @@ class StreamActivity : AppCompatActivity() {
 
     private val HOLDOVER_FRAMES = 15
 
+    private var fpsWindowStart = 0L
 
+    private var badgeSwipeRevealed = false
 
     @Volatile private var isAkhiring = false
 
@@ -427,9 +429,12 @@ class StreamActivity : AppCompatActivity() {
     /** Menyiapkan aksi saat elemen antarmuka ditekan oleh pengguna. */
     private fun setupClickListeners() {
 
+        setupBadgeSwipeGesture()
+
         binding.btnReconnect.setOnClickListener {
             if (isDestroyed || isFinishing) return@setOnClickListener
             showStreamStateSafe(StreamState.CONNECTING)
+            hideBadgeSafe()
             val si = StreamService.createStartIntent(this, ipAddress)
             stopService(si)
             startService(si)
@@ -439,6 +444,39 @@ class StreamActivity : AppCompatActivity() {
         binding.btnAkhiri.setOnClickListener {
             if (!isDestroyed && !isFinishing) konfirmasiAkhiriProses()
         }
+        
+        binding.btnAkhiriBadge.setOnClickListener {
+            if (!isDestroyed && !isFinishing) konfirmasiAkhiriProses()
+        }
+    }
+
+    @Suppress("ClickableViewAccessibility")
+    private fun setupBadgeSwipeGesture() {
+        val detector = androidx.core.view.GestureDetectorCompat(this,
+            object : android.view.GestureDetector.SimpleOnGestureListener() {
+                override fun onFling(
+                    e1: android.view.MotionEvent?, e2: android.view.MotionEvent,
+                    velocityX: Float, velocityY: Float
+                ): Boolean {
+                    val diffX = e2.x - (e1?.x ?: e2.x)
+                    return if (kotlin.math.abs(diffX) > 80f && kotlin.math.abs(velocityX) > 100f) {
+                        badgeSwipeRevealed = !badgeSwipeRevealed
+                        if (!isDestroyed && !isFinishing) {
+                            binding.btnAkhiriBadge.visibility =
+                                if (badgeSwipeRevealed) android.view.View.VISIBLE else android.view.View.GONE
+                            binding.tvConnectedBadge.text =
+                                if (badgeSwipeRevealed) "● Terhubung  » tutup"
+                                else "● Menunggu koneksi data spasial... ‹ geser"
+                        }
+                        true
+                    } else false
+                }
+                override fun onDown(e: android.view.MotionEvent): Boolean = true
+            }
+        )
+
+        binding.badgeSwipeContainer.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
+        binding.tvConnectedBadge.setOnTouchListener  { _, event -> detector.onTouchEvent(event) }
     }
 
     /** Memantau perubahan status koneksi (Flow) antara aplikasi dan ESP32 untuk pembaruan UI. */
@@ -449,10 +487,12 @@ class StreamActivity : AppCompatActivity() {
                 if (isDestroyed || isFinishing || isAkhiring) return@collect
                 when (state) {
                     StreamService.ConnectionState.CONNECTED -> {
+                        showBadgeSafe()
                         showStreamStateSafe(StreamState.STREAMING)
                         startCollectingSensors()
                     }
                     StreamService.ConnectionState.CONNECTING -> {
+                        hideBadgeSafe()
                         showStreamStateSafe(StreamState.CONNECTING)
                         clearStaleSensorDisplay()
                     }
@@ -762,15 +802,34 @@ class StreamActivity : AppCompatActivity() {
         finishAffinity()
     }
 
+    private fun showBadgeSafe() {
+        if (isDestroyed || isFinishing) return
+        badgeSwipeRevealed = false
+        runCatching {
+            binding.btnAkhiriBadge.visibility   = android.view.View.GONE
+            binding.tvConnectedBadge.text       = "● Sensor VNetra Aktif  ‹ geser"
+            binding.tvConnectedBadge.visibility = android.view.View.VISIBLE
+        }
+    }
+
+    private fun hideBadgeSafe() {
+        if (isDestroyed || isFinishing) return
+        badgeSwipeRevealed = false
+        runCatching {
+            binding.btnAkhiriBadge.visibility   = android.view.View.GONE
+            binding.tvConnectedBadge.visibility = android.view.View.GONE
+        }
+    }
+
     /** Memperbarui status teks stream secara aman di main thread. */
     private fun showStreamStateSafe(state: StreamState) {
         if (isDestroyed || isFinishing) return
         runCatching {
             when (state) {
                 StreamState.CONNECTING -> {
-                    binding.progressStream.visibility = View.VISIBLE
-                    binding.tvStreamStatus.text       = "Mencari VNetra..."
-                    binding.tvStreamStatus.visibility = View.VISIBLE
+                    binding.progressStream.visibility = android.view.View.VISIBLE
+                    binding.tvStreamStatus.text       = "Menunggu koneksi data spasial..."
+                    binding.tvStreamStatus.visibility = android.view.View.VISIBLE
                     binding.btnReconnect.visibility   = View.GONE
                     binding.tvError.visibility        = View.GONE
                 }
@@ -781,12 +840,13 @@ class StreamActivity : AppCompatActivity() {
                     binding.btnReconnect.visibility   = View.GONE
                 }
                 is StreamState.ERROR -> {
-                    binding.progressStream.visibility = View.GONE
+                    hideBadgeSafe()
+                    binding.progressStream.visibility = android.view.View.GONE
                     binding.tvError.text              = state.message
-                    binding.tvError.visibility        = View.VISIBLE
-                    binding.btnReconnect.visibility   = View.VISIBLE
+                    binding.tvError.visibility        = android.view.View.VISIBLE
+                    binding.btnReconnect.visibility   = android.view.View.VISIBLE
                     binding.tvStreamStatus.text       = "Offline — menunggu VNetra..."
-                    binding.tvStreamStatus.visibility = View.VISIBLE
+                    binding.tvStreamStatus.visibility = android.view.View.VISIBLE
                 }
             }
         }
