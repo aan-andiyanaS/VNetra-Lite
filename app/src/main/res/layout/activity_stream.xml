@@ -48,7 +48,6 @@
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
@@ -242,7 +241,7 @@
             android:layout_height="wrap_content"
             android:textColor="#AAAAAA"
             android:textSize="9sp"
-            android:fontFamily="sans-serif-light"
+            android:fontFamily="monospace"
             android:text="Total Latency: 0 ms" />
     </LinearLayout>
 
@@ -256,45 +255,7 @@
         android:padding="16dp"
         android:background="#80000000">
 
-        <!-- Badge koneksi + Tombol Akhiri tersembunyi (geser untuk tampilkan) -->
-        <FrameLayout
-            android:id="@+id/badgeSwipeContainer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="8dp">
 
-            <!-- Tombol Akhiri (tersembunyi di balik badge, muncul saat digeser) -->
-            <Button
-                android:id="@+id/btnAkhiriBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical|end"
-                android:text="Akhiri"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:backgroundTint="#D32F2F"
-                android:paddingLeft="12dp"
-                android:paddingRight="12dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:visibility="gone" />
-
-            <!-- Badge koneksi utama -->
-            <TextView
-                android:id="@+id/tvConnectedBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingLeft="10dp"
-                android:paddingRight="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:text="&#9679; Menerima data dari ESP32-S3  ‹ geser"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:background="#AA000000"
-                android:visibility="gone" />
-        </FrameLayout>
 
         <ProgressBar
             android:id="@+id/progressStream"

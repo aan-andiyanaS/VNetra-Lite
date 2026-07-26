@@ -231,8 +231,6 @@ class StreamActivity : AppCompatActivity() {
     private var frameCount     = 0
     private var fpsWindowStart = 0L
 
-    private var badgeSwipeRevealed = false
-
     @Volatile private var isAkhiring = false
 
     // ponytail: cache BT status daripada query AudioManager 2x setiap 200ms
@@ -269,7 +267,6 @@ class StreamActivity : AppCompatActivity() {
             runOnUiThread {
                 if (!isDestroyed && !isFinishing && !isAkhiring) {
                     showStreamStateSafe(StreamState.ERROR("Koneksi service terputus. Tekan Reconnect."))
-                    hideBadgeSafe()
                 }
             }
         }
@@ -329,7 +326,6 @@ class StreamActivity : AppCompatActivity() {
             insets
         }
 
-        setupBadgeSwipeGesture()
         setupClickListeners()
 
         tofGridRenderer.initializeGrid()
@@ -435,7 +431,6 @@ class StreamActivity : AppCompatActivity() {
         binding.btnReconnect.setOnClickListener {
             if (isDestroyed || isFinishing) return@setOnClickListener
             showStreamStateSafe(StreamState.CONNECTING)
-            hideBadgeSafe()
             val si = StreamService.createStartIntent(this, ipAddress)
             stopService(si)
             startService(si)
@@ -445,43 +440,6 @@ class StreamActivity : AppCompatActivity() {
         binding.btnAkhiri.setOnClickListener {
             if (!isDestroyed && !isFinishing) konfirmasiAkhiriProses()
         }
-
-        binding.btnAkhiriBadge.setOnClickListener {
-            if (!isDestroyed && !isFinishing) konfirmasiAkhiriProses()
-        }
-    }
-
-    @Suppress("ClickableViewAccessibility")
-    /** Menambahkan dukungan gestur usap (swipe) pada badge peringatan sensor. */
-    private fun setupBadgeSwipeGesture() {
-        val detector = GestureDetectorCompat(this,
-            object : GestureDetector.SimpleOnGestureListener() {
-                /** Mendeteksi gestur usapan cepat (fling) untuk menyembunyikan elemen UI tertentu. */
-                override fun onFling(
-                    e1: MotionEvent?, e2: MotionEvent,
-                    velocityX: Float, velocityY: Float
-                ): Boolean {
-                    val diffX = e2.x - (e1?.x ?: e2.x)
-                    return if (kotlin.math.abs(diffX) > 80f && kotlin.math.abs(velocityX) > 100f) {
-                        badgeSwipeRevealed = !badgeSwipeRevealed
-                        if (!isDestroyed && !isFinishing) {
-                            binding.btnAkhiriBadge.visibility =
-                                if (badgeSwipeRevealed) View.VISIBLE else View.GONE
-                            binding.tvConnectedBadge.text =
-                                if (badgeSwipeRevealed) "● Terhubung  ✕ tutup"
-                                else "● Menerima data dari ESP32-S3  ‹ geser"
-                        }
-                        true
-                    } else false
-                }
-
-                /** Menandakan bahwa sentuhan awal pada layar baru saja terjadi. */
-                override fun onDown(e: MotionEvent): Boolean = true
-            }
-        )
-
-        binding.badgeSwipeContainer.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
-        binding.tvConnectedBadge.setOnTouchListener  { _, event -> detector.onTouchEvent(event) }
     }
 
     /** Memantau perubahan status koneksi (Flow) antara aplikasi dan ESP32 untuk pembaruan UI. */
@@ -492,17 +450,14 @@ class StreamActivity : AppCompatActivity() {
                 if (isDestroyed || isFinishing || isAkhiring) return@collect
                 when (state) {
                     StreamService.ConnectionState.CONNECTED -> {
-                        showBadgeSafe()
                         showStreamStateSafe(StreamState.STREAMING)
                         startCollectingSensors()
                     }
                     StreamService.ConnectionState.CONNECTING -> {
-                        hideBadgeSafe()
                         showStreamStateSafe(StreamState.CONNECTING)
                         clearStaleSensorDisplay()
                     }
                     StreamService.ConnectionState.DISCONNECTED -> {
-                        hideBadgeSafe()
                     }
                 }
             }
@@ -823,27 +778,6 @@ class StreamActivity : AppCompatActivity() {
         finishAffinity()
     }
 
-    /** Menampilkan indikator UI secara aman di main thread. */
-    private fun showBadgeSafe() {
-        if (isDestroyed || isFinishing) return
-        badgeSwipeRevealed = false
-        runCatching {
-            binding.btnAkhiriBadge.visibility   = View.GONE
-            binding.tvConnectedBadge.text       = "● Sensor VNetra Aktif  ‹ geser"
-            binding.tvConnectedBadge.visibility = View.VISIBLE
-        }
-    }
-
-    /** Menyembunyikan indikator UI secara aman di main thread. */
-    private fun hideBadgeSafe() {
-        if (isDestroyed || isFinishing) return
-        badgeSwipeRevealed = false
-        runCatching {
-            binding.btnAkhiriBadge.visibility   = View.GONE
-            binding.tvConnectedBadge.visibility = View.GONE
-        }
-    }
-
     /** Memperbarui status teks stream secara aman di main thread. */
     private fun showStreamStateSafe(state: StreamState) {
         if (isDestroyed || isFinishing) return
@@ -869,7 +803,6 @@ class StreamActivity : AppCompatActivity() {
                     binding.btnReconnect.visibility   = View.VISIBLE
                     binding.tvStreamStatus.text       = "Offline — menunggu VNetra..."
                     binding.tvStreamStatus.visibility = View.VISIBLE
-                    hideBadgeSafe()
                 }
             }
         }
