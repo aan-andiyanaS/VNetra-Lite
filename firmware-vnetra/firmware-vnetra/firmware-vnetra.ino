@@ -179,7 +179,7 @@ volatile bool is_moving_fast = false;
 volatile unsigned long last_motion_time = 0;
 volatile float global_a_lin_mag = 0.0f;
 
-volatile uint32_t stat_frames_cam = 0;
+volatile uint32_t stat_frames_hbeat = 0;
 volatile uint32_t stat_frames_imu = 0;
 volatile uint32_t stat_frames_tof = 0;
 
@@ -211,7 +211,7 @@ bool   wifiConnected = false;
 String deviceIP      = "";
 unsigned long wifiDisconnectTime = 0;
 bool          isWifiDisconnected   = false;
-bool          isCameraActive       = true;
+bool          isSensorActive       = true;
 String        currentSSID          = "";
 String        currentPassword      = "";
 
@@ -408,7 +408,7 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
 // ======== CAPTURE & SEND via WebSocket ========
 
 // ======== START WEBSOCKET SERVER ========
-void startCameraServer() {
+void startSensorServer() {
     // Graceful shutdown untuk mencegah crash (LoadStoreError) jika fungsi ini dipanggil ulang
     server.end();
     udpSensor.close();
@@ -576,8 +576,8 @@ void bleConnectWifi() {
         BLEDevice::deinit(true);
         bleActive = false;
 
-        // Start WebSocket camera server
-        startCameraServer();
+        // Start WebSocket sensor server
+        startSensorServer();
 
     } else {
         pResponseChar->setValue("CONNECT:FAILED:Connection timeout");
@@ -1086,11 +1086,11 @@ void wifiInitTask(void* pvParams) {
     }
 
     if (connected && !forceResetTriggered) {
-        // ── BUG FIX: startCameraServer dipanggil di sini, bukan di setup() ──
+        // ── BUG FIX: startSensorServer dipanggil di sini, bukan di setup() ──
         // Server harus langsung aktif saat WiFi connect agar mobile app
         // tidak timeout menunggu. Setup() masih sibuk dengan sensor init
         // yang bisa 5-10 detik — terlalu lama bagi app yang sudah punya IP.
-        startCameraServer();
+        startSensorServer();
         ledOff();
         Serial.println("[WS] Server aktif — mobile app bisa connect sekarang.");
         wifiInitResult = connected;
@@ -1254,14 +1254,14 @@ void handleBLEProvisioning() {
     if (deviceConnected && !oldDeviceConnected) oldDeviceConnected = deviceConnected;
 }
 
-void handleCameraStreaming(uint64_t nowUs, uint32_t nowMs) {
+void handlePowerSaveAndCleanup(uint64_t nowUs, uint32_t nowMs) {
     if (!wifiConnected || bleActive) return;
     static uint64_t lastFrameUs = 0;
     static uint32_t lastCleanup = 0;
 
     if (!powerSaveMode && hadClientBefore && !wsClientConnected &&
         lastClientLostTime > 0 && (nowMs - lastClientLostTime >= POWER_SAVE_TIMEOUT)) {
-        powerSaveMode = true; Serial.println("[PWR] Masuk mode hemat daya — kamera tidak aktif");
+        powerSaveMode = true; Serial.println("[PWR] Masuk mode hemat daya — sensor ditangguhkan");
     }
 
     if (powerSaveMode) {
@@ -1275,7 +1275,6 @@ void handleCameraStreaming(uint64_t nowUs, uint32_t nowMs) {
 
     if (nowUs - lastFrameUs >= TARGET_FRAME_US) {
         lastFrameUs = nowUs;
-        if (!powerSaveMode && wsClientConnected) stat_frames_cam++;
     }
 
     if (nowMs - lastCleanup >= 5000) {  // ADR-046: 5s (was 2s) — kurangi jitter timing frame
@@ -1295,8 +1294,8 @@ void handleWiFiReconnection(uint32_t nowMs) {
                 Serial.println("[WiFi] Koneksi WiFi terputus! Mencoba menyambung kembali...");
                 WiFi.disconnect(); WiFi.begin(currentSSID.c_str(), currentPassword.c_str());
             } else {
-                if (nowMs - wifiDisconnectTime > 30000 && isCameraActive) {
-                    Serial.println("[WiFi] Terputus > 30 detik. Menonaktifkan kamera sementara untuk hemat daya...");
+                if (nowMs - wifiDisconnectTime > 30000 && isSensorActive) {
+                    Serial.println("[WiFi] Terputus > 30 detik. Menangguhkan sensor sementara untuk hemat daya...");
                 }
             }
         } else {
@@ -1314,11 +1313,11 @@ void handleStatsAndHeartbeat(uint32_t nowMs) {
     static uint32_t lastHbeat = 0;
     if (nowMs - lastHbeat >= WS_PING_INTERVAL) {
         lastHbeat = nowMs;
-        Serial.printf("[STAT] Heap: %u B | WS clients: %u | FPS ~%.1f | PowerSave: %s\n",
-            esp_get_free_heap_size(), ws.count(), (float)stat_frames_cam * 1000.0f / WS_PING_INTERVAL, powerSaveMode ? "ON" : "OFF");
-        Serial.printf("       [DATA SENT] CAM: %u | IMU: %u | TOF: %u\n", stat_frames_cam, stat_frames_imu, stat_frames_tof);
+        Serial.printf("[STAT] Heap: %u B | WS clients: %u | PowerSave: %s\n",
+            esp_get_free_heap_size(), ws.count(), powerSaveMode ? "ON" : "OFF");
+        Serial.printf("       [DATA SENT] HBEAT: %u | IMU: %u | TOF: %u\n", stat_frames_hbeat, stat_frames_imu, stat_frames_tof);
         
-        stat_frames_cam = 0; stat_frames_imu = 0; stat_frames_tof = 0;
+        stat_frames_hbeat = 0; stat_frames_imu = 0; stat_frames_tof = 0;
 
         if (ws.count() > 0) {
             uint8_t hbeat[FRAME_HEADER_SZ];
@@ -1326,7 +1325,10 @@ void handleStatsAndHeartbeat(uint32_t nowMs) {
             hbeat[0] = FRAME_TYPE_HBEAT;
             memcpy(hbeat + 1, &ts, 8);
             for (auto& client : ws.getClients()) {
-                if (client.status() == WS_CONNECTED && !client.queueIsFull()) client.binary(hbeat, FRAME_HEADER_SZ);
+                if (client.status() == WS_CONNECTED && !client.queueIsFull()) {
+                    client.binary(hbeat, FRAME_HEADER_SZ);
+                    stat_frames_hbeat++;
+                }
             }
         }
     }
@@ -1341,7 +1343,7 @@ void setup() {
 
     Serial.begin(115200);
     delay(1000);
-    Serial.println("\n===== ESP32-S3 CAM BLE Provisioning + WebSocket =====");
+    Serial.println("\n===== ESP32 VNetra Sensor Server =====");
 
     i2c_mutex = xSemaphoreCreateMutex();
 
@@ -1447,7 +1449,7 @@ void loop() {
 
     handleButton();
     handleBLEProvisioning();
-    handleCameraStreaming(nowUs, nowMs);
+    handlePowerSaveAndCleanup(nowUs, nowMs);
     handleWiFiReconnection(nowMs);
     handleStatsAndHeartbeat(nowMs);
 
