@@ -108,7 +108,7 @@ class StreamActivity : AppCompatActivity() {
      */
     private inner class LatencyLogger {
         private val TAG = "LAT"
-        private val LOG_INTERVAL_MS = 5_000L
+        private val LOG_INTERVAL_MS = 1_000L
 
         // Ring-buffer per metrik (maks 1000 sample per sesi)
         private val bufHardware  = ArrayDeque<Long>(1000)
