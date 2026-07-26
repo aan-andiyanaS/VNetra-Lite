@@ -903,7 +903,7 @@ void IMU_Task(void *pvParameters) {
 void TOF_Task(void *pvParameters) {
   static float ema_dist[64] = {0};
   static bool ema_init[64] = {false};
-  const float ema_alpha = 0.3f;
+  const float ema_alpha = 0.7f; // [PERBAIKAN] Dinaikkan dari 0.3 ke 0.7 agar sangat responsif (minim lag)
 
   for (;;) {
     bool gotData = false;
@@ -1139,10 +1139,8 @@ void TOF_InitTask(void* pvParams) {
             myImager.setWireMaxPacketSize(128);
             myImager.setResolution(64); // Statically 8x8
 
-            // Frequency & Integration Time:
-            // Kembali ke nilai default yang STABIL (tidak memblok I2C mutex).
-            // Lihat komentar di mode change handler untuk penjelasan lengkap.
-            myImager.setRangingFrequency(10);
+            // Kembalikan ke 15Hz (batas maksimal untuk resolusi 8x8) agar tidak ada lag
+            myImager.setRangingFrequency(15);
             // Integration time: diturunkan agar lebih tahan terhadap saturasi inframerah dari sinar matahari.
             // Dioptimalkan untuk outdoor: 4x4=20ms, 8x8=30ms.
             myImager.setIntegrationTime(30);
@@ -1152,7 +1150,7 @@ void TOF_InitTask(void* pvParams) {
             myImager.startRanging();
             Serial.printf("[TOF] Init: %dx%d, Freq=%dHz, IntTime=%dms\n",
                           8, 8,
-                          10,
+                          15,
                           30);
         }
         xSemaphoreGive(i2c_mutex);
