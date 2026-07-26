@@ -109,8 +109,8 @@ class StreamService : Service() {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-
+        .readTimeout(0, TimeUnit.SECONDS) // NONAKTIFKAN timeout baca searah untuk mencegah pemutusan saat HBEAT packet loss
+        .pingInterval(5, TimeUnit.SECONDS) // Aktifkan Ping/Pong otomatis dua arah tiap 5 detik
         .build()
 
     private val _imuFlow = MutableSharedFlow<FloatArray>(

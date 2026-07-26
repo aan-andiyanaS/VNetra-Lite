@@ -27,7 +27,8 @@ class CameraManager {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
-        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.SECONDS) // NONAKTIFKAN timeout baca searah
+        .pingInterval(5, TimeUnit.SECONDS) // Aktifkan Ping/Pong otomatis dua arah tiap 5 detik
         .build()
 
     /** Membuka koneksi WebSocket eksperimental ke aliran data spasial ToF/Visual ESP32. */
