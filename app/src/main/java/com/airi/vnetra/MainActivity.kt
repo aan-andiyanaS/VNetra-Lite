@@ -209,9 +209,9 @@ class MainActivity : AppCompatActivity() {
 
         binding.layoutBanner.visibility = View.VISIBLE
         binding.tvBannerMessage.text = "Menghubungkan ke perangkat tersimpan ($ipAddress)..."
-        binding.btnConnectCamera.text = "Batal"
+        binding.btnConnectDevice.text = "Batal"
 
-        binding.btnConnectCamera.setOnClickListener {
+        binding.btnConnectDevice.setOnClickListener {
             autoConnectJob?.cancel()
             binding.layoutBanner.visibility = View.GONE
             Toast.makeText(this, "Pencarian otomatis dibatalkan.", Toast.LENGTH_SHORT).show()

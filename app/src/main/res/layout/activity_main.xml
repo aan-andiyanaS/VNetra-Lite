@@ -64,7 +64,7 @@
             android:layout_marginBottom="8dp" />
 
         <Button
-            android:id="@+id/btnConnectCamera"
+            android:id="@+id/btnConnectDevice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Mulai Navigasi Sensor"

@@ -3,10 +3,10 @@ package com.airi.vnetra.ui
 /**
  * StreamActivity (UI layer for Sensor Data)
  *
- * Activity utama yang menampilkan visualisasi data sensor ToF dan status MPU6050.
- * Menjaga koneksi ke layanan background (StreamService).
- * Catatan: Menggunakan nama 'Camera' untuk menjaga kompatibilitas intent dan manifest bawaan,
- * namun secara fungsional telah bertransformasi menjadi dashboard murni sensor spasial.
+ * Activity ini bertanggung jawab untuk menampilkan data stream secara real-time.
+ * Data spasial dirender ke grid 8x8 dan status latensi sistem dipantau terus-menerus.
+ * 
+ * Aliran data murni menggunakan koneksi TCP/WebSocket ke ESP32 secara persisten.
  */
 
 import android.Manifest
@@ -298,7 +298,7 @@ class StreamActivity : AppCompatActivity() {
 
         sessionManager = SessionManager(this)
 
-        supportActionBar?.title = "Live Camera — $ipAddress"
+        supportActionBar?.title = "VNetra Stream — $ipAddress"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
@@ -388,7 +388,7 @@ class StreamActivity : AppCompatActivity() {
         val newIp = intent?.getStringExtra(EXTRA_IP)
         if (!newIp.isNullOrEmpty() && newIp != ipAddress) {
             ipAddress = newIp
-            supportActionBar?.title = "Live Camera — $ipAddress"
+            supportActionBar?.title = "VNetra Stream — $ipAddress"
             val si = StreamService.createStartIntent(this, ipAddress)
             stopService(si); startService(si)
         }

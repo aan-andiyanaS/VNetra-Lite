@@ -452,7 +452,7 @@ class StreamService : Service() {
     private fun acquireWakeLock() {
         runCatching {
             wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CameraStream::WakeLock")
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "VNetraStream::WakeLock")
                 .apply { acquire(12 * 60 * 60 * 1000L) }
         }.onFailure { Log.e(TAG, "WakeLock failed: ${it.message}") }
     }
@@ -465,7 +465,7 @@ class StreamService : Service() {
                 WifiManager.WIFI_MODE_FULL_LOW_LATENCY
             else WifiManager.WIFI_MODE_FULL_HIGH_PERF
             wifiLock = (applicationContext.getSystemService(WIFI_SERVICE) as WifiManager)
-                .createWifiLock(mode, "CameraStream::WifiLock")
+                .createWifiLock(mode, "VNetraStream::WifiLock")
                 .apply { setReferenceCounted(false); acquire() }
         }.onFailure { Log.e(TAG, "WifiLock failed: ${it.message}") }
     }
@@ -563,7 +563,7 @@ class StreamService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(NotificationChannel(
-            NOTIF_CH_FG, "Camera Stream Status", NotificationManager.IMPORTANCE_LOW
+            NOTIF_CH_FG, "VNetra Stream Status", NotificationManager.IMPORTANCE_LOW
         ).apply { setShowBadge(false) })
         nm.createNotificationChannel(NotificationChannel(
             NOTIF_CH_ALERT, "ESP32 Connection Alerts", NotificationManager.IMPORTANCE_HIGH

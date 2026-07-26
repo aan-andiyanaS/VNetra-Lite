@@ -99,7 +99,7 @@ class DeviceConfigActivity : AppCompatActivity() {
         observeState()
         connectToDevice()
 
-        updateCameraButtonVisibility()
+        updateStreamButtonVisibility()
     }
 
     /** Menginisialisasi komponen RecyclerView untuk daftar perangkat/WiFi. */
@@ -120,7 +120,7 @@ class DeviceConfigActivity : AppCompatActivity() {
             scanWifi()
         }
 
-        binding.btnViewCamera.setOnClickListener {
+        binding.btnStartStream.setOnClickListener {
             if (esp32IpAddress.isNotEmpty()) {
                 startActivity(StreamActivity.createIntent(this, esp32IpAddress))
             } else {
@@ -241,7 +241,7 @@ private fun observeState() {
                     if (deviceAddress.isNotEmpty()) {
                         sessionManager.saveLastDeviceMac(deviceAddress)
                     }
-                    updateCameraButtonVisibility()
+                    updateStreamButtonVisibility()
                 }
             }
             data.startsWith("BLE:") -> {
@@ -268,8 +268,8 @@ private fun observeState() {
     }
 
     /** Mengatur visibilitas tombol stream berdasarkan ketersediaan IP. */
-    private fun updateCameraButtonVisibility() {
-        binding.btnViewCamera.visibility =
+    private fun updateStreamButtonVisibility() {
+        binding.btnStartStream.visibility =
             if (esp32IpAddress.isNotEmpty()) View.VISIBLE else View.GONE
     }
 
@@ -352,7 +352,7 @@ private fun observeState() {
                             Toast.makeText(this, "WiFi connected!", Toast.LENGTH_SHORT).show()
 
                             if (esp32IpAddress.isNotEmpty()) {
-                                updateCameraButtonVisibility()
+                                updateStreamButtonVisibility()
                                 Toast.makeText(
                                     this,
                                     "Tekan 'View Sensor' untuk melihat live stream",
