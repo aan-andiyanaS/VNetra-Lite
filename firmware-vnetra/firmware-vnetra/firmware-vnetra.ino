@@ -850,11 +850,12 @@ void IMU_Task(void *pvParameters) {
     }
     
     float a_lin_dynamic = a_lin_smooth - a_lin_dc_bias;
-    if (a_lin_dynamic < 0.0f) a_lin_dynamic = 0.0f; // Clamp lantai (Magnitudo Skalar tidak bisa negatif)
+    if (a_lin_dynamic < 0.15f) {
+        a_lin_dynamic = 0.0f; // Noise gate: Abaikan getaran kelistrikan saat diam
+    }
     
     float a_lin_mag = a_lin_dynamic;
     global_a_lin_mag = a_lin_mag; // Share to other tasks
-    // Deadzone/Noise Gate (a_lin_mag < 0.2f) telah DICABUT agar pergerakan mikro terdeteksi layaknya kecepatan dunia nyata.
 
 
     last_ts_esp = current_ts_esp;
