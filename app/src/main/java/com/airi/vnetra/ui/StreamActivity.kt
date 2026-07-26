@@ -852,11 +852,13 @@ class StreamActivity : AppCompatActivity() {
                 StreamState.CONNECTING -> {
                     binding.progressStream.visibility = View.VISIBLE
                     binding.tvStreamStatus.text       = "Mencari VNetra..."
+                    binding.tvStreamStatus.visibility = View.VISIBLE
                     binding.btnReconnect.visibility   = View.GONE
                     binding.tvError.visibility        = View.GONE
                 }
                 StreamState.STREAMING -> {
                     binding.progressStream.visibility = View.GONE
+                    binding.tvStreamStatus.visibility = View.GONE
                     binding.tvError.visibility        = View.GONE
                     binding.btnReconnect.visibility   = View.GONE
                 }
@@ -866,6 +868,7 @@ class StreamActivity : AppCompatActivity() {
                     binding.tvError.visibility        = View.VISIBLE
                     binding.btnReconnect.visibility   = View.VISIBLE
                     binding.tvStreamStatus.text       = "Offline — menunggu VNetra..."
+                    binding.tvStreamStatus.visibility = View.VISIBLE
                     hideBadgeSafe()
                 }
             }
