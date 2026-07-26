@@ -1055,6 +1055,7 @@ void TOF_Task(void *pvParameters) {
           AsyncUDPMessage tof_msg(totalSize);
           tof_msg.write(tof_buf, totalSize);
           udpSensor.sendTo(tof_msg, activeClientIp, UDP_TARGET_PORT);
+          stat_frames_tof++;
         }
     }
     vTaskDelay(pdMS_TO_TICKS(10));
