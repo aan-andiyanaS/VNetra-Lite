@@ -42,98 +42,57 @@
         <LinearLayout
             android:id="@+id/clockDirectionIndicator"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="8dp"
             android:orientation="horizontal"
             android:weightSum="8"
-            android:background="#40000000"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
             app:layout_constraintBottom_toTopOf="@id/gridTof"
             app:layout_constraintStart_toStartOf="@id/gridTof"
             app:layout_constraintEnd_toEndOf="@id/gridTof">
 
-            <TextView
-                android:id="@+id/tvClock10"
+            <Space
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="10"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
 
-            <!-- Divider -->
             <View
                 android:layout_width="1dp"
-                android:layout_height="18dp"
-                android:layout_gravity="center_vertical"
-                android:background="#88FFFFFF" />
+                android:layout_height="match_parent"
+                android:background="#AA00C853" />
 
-            <TextView
-                android:id="@+id/tvClock11"
+            <Space
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="center"
-                android:text="11"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:layout_height="match_parent"
+                android:layout_weight="2" />
 
-            <!-- Divider -->
             <View
                 android:layout_width="1dp"
-                android:layout_height="18dp"
-                android:layout_gravity="center_vertical"
-                android:background="#88FFFFFF" />
+                android:layout_height="match_parent"
+                android:background="#AA00C853" />
 
-            <TextView
-                android:id="@+id/tvClock12"
+            <Space
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="center"
-                android:text="12"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:layout_height="match_parent"
+                android:layout_weight="2" />
 
-            <!-- Divider -->
             <View
                 android:layout_width="1dp"
-                android:layout_height="18dp"
-                android:layout_gravity="center_vertical"
-                android:background="#88FFFFFF" />
+                android:layout_height="match_parent"
+                android:background="#AA00C853" />
 
-            <TextView
-                android:id="@+id/tvClock1"
+            <Space
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="center"
-                android:text="1"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:layout_height="match_parent"
+                android:layout_weight="2" />
 
-            <!-- Divider -->
             <View
                 android:layout_width="1dp"
-                android:layout_height="18dp"
-                android:layout_gravity="center_vertical"
-                android:background="#88FFFFFF" />
+                android:layout_height="match_parent"
+                android:background="#AA00C853" />
 
-            <TextView
-                android:id="@+id/tvClock2"
+            <Space
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="2"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
 
         </LinearLayout>
 
@@ -253,44 +212,44 @@
         android:background="#80000000">
 
         <!-- Badge koneksi + Tombol Akhiri tersembunyi (geser untuk tampilkan) -->
-        <FrameLayout
+        <LinearLayout
             android:id="@+id/badgeSwipeContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="8dp">
-
-            <!-- Tombol Akhiri (tersembunyi di balik badge, muncul saat digeser) -->
-            <Button
-                android:id="@+id/btnAkhiriBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical|end"
-                android:text="Akhiri"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:backgroundTint="#D32F2F"
-                android:paddingLeft="12dp"
-                android:paddingRight="12dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:visibility="gone" />
+            android:layout_marginBottom="8dp"
+            android:orientation="horizontal"
+            android:background="#AA000000"
+            android:gravity="center_vertical"
+            android:padding="4dp">
 
             <!-- Badge koneksi utama -->
             <TextView
                 android:id="@+id/tvConnectedBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingLeft="10dp"
-                android:paddingRight="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:text="● Menunggu koneksi data spasial... ‹ geser"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:text="● Menunggu koneksi data spasial... « geser"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:background="#AA000000"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <!-- Tombol Akhiri (tersembunyi di balik badge, muncul saat digeser) -->
+            <Button
+                android:id="@+id/btnAkhiriBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Akhiri"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:backgroundTint="#D32F2F"
+                android:layout_marginEnd="4dp"
                 android:visibility="gone" />
-        </FrameLayout>
+
+        </LinearLayout>
 
         <ProgressBar
             android:id="@+id/progressStream"

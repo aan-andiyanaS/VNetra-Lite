@@ -462,11 +462,15 @@ class StreamActivity : AppCompatActivity() {
                     return if (kotlin.math.abs(diffX) > 80f && kotlin.math.abs(velocityX) > 100f) {
                         badgeSwipeRevealed = !badgeSwipeRevealed
                         if (!isDestroyed && !isFinishing) {
+                            android.transition.TransitionManager.beginDelayedTransition(
+                                binding.badgeSwipeContainer,
+                                android.transition.AutoTransition()
+                            )
                             binding.btnAkhiriBadge.visibility =
                                 if (badgeSwipeRevealed) android.view.View.VISIBLE else android.view.View.GONE
                             binding.tvConnectedBadge.text =
-                                if (badgeSwipeRevealed) "● Terhubung  » tutup"
-                                else "● Menunggu koneksi data spasial... ‹ geser"
+                                if (badgeSwipeRevealed) "● Terhubung  tutup »"
+                                else "● Sensor VNetra Aktif  « geser"
                         }
                         true
                     } else false
@@ -807,7 +811,7 @@ class StreamActivity : AppCompatActivity() {
         badgeSwipeRevealed = false
         runCatching {
             binding.btnAkhiriBadge.visibility   = android.view.View.GONE
-            binding.tvConnectedBadge.text       = "● Sensor VNetra Aktif  ‹ geser"
+            binding.tvConnectedBadge.text       = "● Sensor VNetra Aktif  « geser"
             binding.tvConnectedBadge.visibility = android.view.View.VISIBLE
         }
     }
