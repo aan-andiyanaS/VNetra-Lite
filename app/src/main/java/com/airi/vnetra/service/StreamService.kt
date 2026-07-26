@@ -516,8 +516,8 @@ class StreamService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val notif = NotificationCompat.Builder(this, NOTIF_CH_ALERT)
-                .setContentTitle("ESP32-S3 Terkoneksi 🟢")
-                .setContentText("Streaming sensor aktif ($ipAddress)")
+                .setContentTitle("VNetra Sensor Terkoneksi 🟢")
+                .setContentText("Streaming data aktif ($ipAddress)")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
@@ -542,9 +542,9 @@ class StreamService : Service() {
         )
 
         val (title, text) = when (_connectionState.value) {
-            ConnectionState.CONNECTED    -> "ESP32-S3 Terkoneksi"  to "Streaming sensor aktif ($ipAddress)"
-            ConnectionState.CONNECTING   -> "ESP32-S3 Camera"      to "Menghubungkan ke $ipAddress..."
-            ConnectionState.DISCONNECTED -> "ESP32-S3 Camera"      to "Terputus — mencoba reconnect..."
+            ConnectionState.CONNECTED    -> "VNetra Sensor"        to "Streaming data aktif ($ipAddress)"
+            ConnectionState.CONNECTING   -> "VNetra Sensor"        to "Mencari sensor di $ipAddress..."
+            ConnectionState.DISCONNECTED -> "VNetra Sensor"        to "Terputus — mencoba reconnect..."
         }
 
         return NotificationCompat.Builder(this, NOTIF_CH_FG)

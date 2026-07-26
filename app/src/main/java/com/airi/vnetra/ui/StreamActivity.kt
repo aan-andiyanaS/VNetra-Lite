@@ -851,7 +851,7 @@ class StreamActivity : AppCompatActivity() {
             when (state) {
                 StreamState.CONNECTING -> {
                     binding.progressStream.visibility = View.VISIBLE
-                    binding.tvStreamStatus.text       = "Menghubungkan ke sensor ESP32..."
+                    binding.tvStreamStatus.text       = "Mencari VNetra..."
                     binding.btnReconnect.visibility   = View.GONE
                     binding.tvError.visibility        = View.GONE
                 }
@@ -865,7 +865,7 @@ class StreamActivity : AppCompatActivity() {
                     binding.tvError.text              = state.message
                     binding.tvError.visibility        = View.VISIBLE
                     binding.btnReconnect.visibility   = View.VISIBLE
-                    binding.tvStreamStatus.text       = "Offline — menunggu ESP32..."
+                    binding.tvStreamStatus.text       = "Offline — menunggu VNetra..."
                     hideBadgeSafe()
                 }
             }
@@ -895,17 +895,7 @@ class StreamActivity : AppCompatActivity() {
         
         val totalPing = hardware + serial + algo + tts + btLatency
 
-        val text = """
-            === LATENCY MONITOR (SKRIPSI) ===
-            Sensor Hardware   : $hardware ms
-            Serial Transmisi  : $serial ms
-            Algoritma Spasial : $algo ms
-            Sintesis TTS      : $tts ms
-            Earphone Bluetooth: $btValue
-            ---------------------------------
-            ► PING TOTAL      : $totalPing ms
-            =================================
-        """.trimIndent()
+        val text = "Total Latency: $totalPing ms"
         runCatching {
             binding.tvLatencyMonitor.text = text
         }
@@ -933,7 +923,7 @@ class StreamActivity : AppCompatActivity() {
                 binding.tvImuRoll.text  = "Roll:  —"
                 binding.tvImuYaw.text   = "Yaw:   —"
                 binding.tvImuAccel.text = "Accel: —"
-                binding.tvLatencyMonitor.text = "=== SYSTEM PING MONITOR ===\nSensor Data : —\nToF Total  : —\n---------------------------\n► MAX BOTTLENECK : —\n\n[Sequential ToF Details]\n├─ Smoothing : —\n└─ Formula E/H : —\n==========================="
+                binding.tvLatencyMonitor.text = "Total Latency: —"
                 if (::tofGridRenderer.isInitialized) {
                     tofGridRenderer.clearGrid()
                 }

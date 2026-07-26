@@ -11,7 +11,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="ESP32-S3 Camera"
+        android:text="VNetra Sensor"
         android:textSize="24sp"
         android:textStyle="bold"
         android:textAlignment="center"
@@ -42,7 +42,7 @@
 
     <!--
         Banner: ditampilkan saat ESP32 terakhir ditemukan di BLE scan.
-        User harus tap "Sambungkan ke Kamera" — tidak ada auto-navigate.
+        User harus tap "Mulai Navigasi Sensor" — tidak ada auto-navigate.
     -->
     <LinearLayout
         android:id="@+id/layoutBanner"
@@ -67,7 +67,7 @@
             android:id="@+id/btnConnectCamera"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Sambungkan ke Kamera"
+            android:text="Mulai Navigasi Sensor"
             android:backgroundTint="#2E7D32"
             android:textColor="#FFFFFF" />
     </LinearLayout>
