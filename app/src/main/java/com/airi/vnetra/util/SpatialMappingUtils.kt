@@ -16,7 +16,7 @@ object SpatialMappingUtils {
     
     // Threshold jarak untuk dianggap sebagai ancaman dekat (mm)
     private const val CLOSE_DIST_MIN = 30
-    private const val CLOSE_DIST_MAX = 2000
+    private const val CLOSE_DIST_MAX = 4000
 
     private val emaDistances = FloatArray(64) { -1f }
     private val holdoverFrames = IntArray(64) { 0 }
@@ -69,9 +69,9 @@ object SpatialMappingUtils {
         // 2. Isolasi area bahaya (toleransi 300mm) untuk memisahkan dari background
         val dangerCells = closeCells.filter { it.dist <= nearestDist + 300 }
 
-        // 3. Syarat tembok: area bahaya membentang secara vertikal minimal 4 baris
-        val distinctRows = dangerCells.map { it.row }.distinct()
-        val isWall = distinctRows.size >= 4
+        // 3. Syarat tembok: area bahaya membentang secara horizontal minimal 4 kolom
+        val distinctCols = dangerCells.map { it.col }.distinct()
+        val isWall = distinctCols.size >= 4
         val type = if (isWall) "tembok" else "halangan"
 
         // 4. Buat histogram jumlah sel per kolom dari area bahaya
