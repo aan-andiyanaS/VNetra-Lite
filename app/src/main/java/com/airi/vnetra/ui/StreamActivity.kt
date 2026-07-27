@@ -34,7 +34,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.view.GestureDetectorCompat
+
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.airi.vnetra.databinding.ActivityStreamBinding
@@ -310,7 +310,7 @@ class StreamActivity : AppCompatActivity() {
 
     @Suppress("ClickableViewAccessibility")
     private fun setupBadgeSwipeGesture() {
-        val detector = androidx.core.view.GestureDetectorCompat(this,
+        val detector = android.view.GestureDetector(this,
             object : android.view.GestureDetector.SimpleOnGestureListener() {
                 override fun onFling(
                     e1: android.view.MotionEvent?, e2: android.view.MotionEvent,

@@ -116,10 +116,6 @@ class StreamService : Service() {
     private lateinit var ttsAlertManager: TtsAlertManager
     private lateinit var latencyLogger: LatencyLogger
 
-    private var closeThreatExists = false
-    private var isBlockedState = false
-    private var allClear = true
-
     private var lastDataReceivedTime        = 0L
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -311,9 +307,9 @@ class StreamService : Service() {
                         object : WebSocketListener() {
 
                         /** Dijalankan saat koneksi WebSocket atau stream berhasil terbuka. */
-                        override fun onOpen(ws: WebSocket, r: Response) {
+                        override fun onOpen(webSocket: WebSocket, response: Response) {
                             runCatching {
-                                activeWebSocket   = ws
+                                activeWebSocket   = webSocket
                                 reconnectAttempts = 0
                                 setConnectionState(ConnectionState.CONNECTED)
                                 sendConnectedHeadsUp()
@@ -324,15 +320,15 @@ class StreamService : Service() {
 
                             pingJob?.cancel()
                             pingJob = serviceScope.launch {
-                                while (isActive && activeWebSocket == ws) {
-                                    runCatching { ws.send("PING:${System.currentTimeMillis()}") }
+                                while (isActive && activeWebSocket == webSocket) {
+                                    runCatching { webSocket.send("PING:${System.currentTimeMillis()}") }
                                     delay(1000)
                                 }
                             }
                         }
 
                         /** Dijalankan setiap kali menerima paket data baru (string/bytes) dari WebSocket. */
-                        override fun onMessage(ws: WebSocket, text: String) {
+                        override fun onMessage(webSocket: WebSocket, text: String) {
                             if (stopped) return
                             if (text.startsWith("PONG:")) {
                                 val sentTime = text.substringAfter("PONG:").toLongOrNull() ?: return
@@ -347,7 +343,7 @@ class StreamService : Service() {
                         }
 
                         /** Dijalankan setiap kali menerima paket data baru (string/bytes) dari WebSocket. */
-                        override fun onMessage(ws: WebSocket, bytes: ByteString) {
+                        override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                             if (stopped) return
                             lastDataReceivedTime = System.currentTimeMillis()
                             runCatching {
@@ -374,7 +370,7 @@ class StreamService : Service() {
                         }
 
                         /** Dijalankan saat koneksi WebSocket atau request mengalami kegagalan teknis. */
-                        override fun onFailure(ws: WebSocket, t: Throwable, r: Response?) {
+                        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                             runCatching { pingJob?.cancel(); pingJob = null }
                             runCatching {
                                 Log.e(TAG, "WS failure: ${t.message}")
@@ -390,12 +386,12 @@ class StreamService : Service() {
                         }
 
                         /** Menangani event penutupan WebSocket dari server secara bertahap. */
-                        override fun onClosing(ws: WebSocket, code: Int, reason: String) {
-                            runCatching { ws.close(1000, null) }
+                        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                            runCatching { webSocket.close(1000, null) }
                         }
 
                         /** Dijalankan saat koneksi WebSocket ditutup secara normal. */
-                        override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                             runCatching { pingJob?.cancel(); pingJob = null }
                             runCatching {
                                 activeWebSocket = null

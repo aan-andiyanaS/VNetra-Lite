@@ -34,7 +34,6 @@ class TtsAlertManager(private val context: Context) {
 
         const val EPS_NOISE      = 500
         const val EPS_CLEAR_ZONE = 150
-        const val D_RESET        = D_W0 + EPS_NOISE
     }
 
     private var alertFlag: Boolean = false
@@ -213,7 +212,7 @@ class TtsAlertManager(private val context: Context) {
 
                 null
             }
-            dObj > D_RESET && alreadyAlerted -> {
+            dObj > T + EPS_NOISE && alreadyAlerted -> {
 
                 if (isAlertPermitted) {
                     resetDebounceFrames++
