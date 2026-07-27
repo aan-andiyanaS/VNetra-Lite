@@ -59,6 +59,10 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import java.util.concurrent.TimeUnit
 import com.airi.vnetra.util.LatencyLogger
+import com.airi.vnetra.util.LatencyMetrics
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 
 class StreamService : Service() {
 
@@ -147,6 +151,30 @@ class StreamService : Service() {
 
     private val _pingWebsocketFlow = MutableStateFlow(-1L)
     val pingWebsocketFlow: StateFlow<Long> = _pingWebsocketFlow.asStateFlow()
+
+    private val _latencyFlow = MutableStateFlow(LatencyMetrics(0, 0, 0, 0, 0, 0))
+    val latencyFlow: StateFlow<LatencyMetrics> = _latencyFlow.asStateFlow()
+
+    @Volatile
+    private var isBluetoothHeadsetConnected = false
+
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            updateBluetoothStatus()
+        }
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            updateBluetoothStatus()
+        }
+    }
+
+    private fun updateBluetoothStatus() {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        isBluetoothHeadsetConnected = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        }
+    }
 
 
     /** Mengikat komponen UI (Activity) ke komponen latar belakang (Service). */
@@ -688,19 +716,17 @@ class StreamService : Service() {
             }
         }
 
+        // Initialize Bluetooth status and register callback
+        updateBluetoothStatus()
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        am.registerAudioDeviceCallback(audioDeviceCallback, null)
+
         // Start continuous latency logging
         serviceScope.launch {
             while (isActive) {
                 kotlinx.coroutines.delay(200)
-                val hasBluetooth = runCatching {
-                    val am = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-                    am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
-                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                    }
-                }.getOrDefault(false)
 
-                val btVal = if (hasBluetooth) 150L else 0L
+                val btVal = if (isBluetoothHeadsetConnected) 150L else 0L
                 val wsPing = _pingWebsocketFlow.value
                 val serial = if (wsPing > 0) wsPing else 5L
                 val hw = 15L
@@ -717,6 +743,15 @@ class StreamService : Service() {
                         bt = btVal,
                         total = total
                     )
+                    
+                    _latencyFlow.value = LatencyMetrics(
+                        hwPing = hw,
+                        serialPing = serial,
+                        algoPing = algo,
+                        ttsPing = tts,
+                        btPing = btVal,
+                        totalPing = total
+                    )
                 }
             }
         }
@@ -724,12 +759,6 @@ class StreamService : Service() {
 
     private var latestImuSnap: FloatArray? = null
     
-    private var wasAlertActive = false
-    
-    private fun getSafeImuData(): FloatArray? {
-        // Implement simple cache from _imuFlow or just use latest
-        return latestImuSnap
-    }
 
     private fun evaluateObstacles(tofData: IntArray) {
         val imuSnap = latestImuSnap
@@ -752,6 +781,7 @@ class StreamService : Service() {
 
             val physics = navigationCoordinator.calculateDynamicThreshold(dObj, objectLabel, imuSnap)
 
+            val prevHasAlerts = ttsAlertManager.hasActiveAlerts()
             val obstacleAlert = ttsAlertManager.process(
                 dObj = dObj,
                 clockDirection = clockDir,
@@ -760,29 +790,24 @@ class StreamService : Service() {
                 isStationary = isStationary,
                 vAvg = physics.vAvg,
                 T = physics.dynamicThresholdT,
-                isAlertPermitted = physics.isAlertPermitted
+                isAlertPermitted = physics.isAlertPermitted,
+                isSameSemanticState = physics.isSameSemanticState
             )
-            
+
+            // Memori spasial dibiarkan kedaluwarsa secara alami di NavigationCoordinator,
+            // sehingga kita tidak perlu secara manual menghapus memori saat alert flag cleared.
+
             if (obstacleAlert != null) {
+                navigationCoordinator.recordObstacleAlerted(imuSnap, dObj, physics.dynamicThresholdT)
                 ttsAlertManager.speak(obstacleAlert)
-            }
-            
-            // Global Clear Path Logic
-            val hasAlerts = ttsAlertManager.hasActiveAlerts()
-            if (hasAlerts) {
-                wasAlertActive = true
-            } else if (wasAlertActive) {
-                val isStableNow = !navigationCoordinator.isHeadRotating(imuSnap, 45f)
-                
-                if (isStableNow) {
-                    ttsAlertManager.speakQueue("Jalan di depan kosong")
-                    wasAlertActive = false 
-                }
             }
         }
     }
 
     override fun onDestroy() {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        am.unregisterAudioDeviceCallback(audioDeviceCallback)
+        
         if (::ttsAlertManager.isInitialized) ttsAlertManager.shutdown()
         super.onDestroy()
         stopStreamAndRelease()

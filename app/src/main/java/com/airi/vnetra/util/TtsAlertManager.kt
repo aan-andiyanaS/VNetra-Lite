@@ -16,7 +16,6 @@ import android.media.AudioTrack
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +38,6 @@ class TtsAlertManager(private val context: Context) {
     }
 
     private var alertFlag: Boolean = false
-    private var lastSeenTime: Long = 0L
     private var lastSpokenTime: Long = 0L
 
     private var resetDebounceFrames = 0
@@ -142,7 +140,8 @@ class TtsAlertManager(private val context: Context) {
         isStationary: Boolean = false,
         vAvg: Float,
         T: Int,
-        isAlertPermitted: Boolean
+        isAlertPermitted: Boolean,
+        isSameSemanticState: Boolean = false
     ): String? {
         val alreadyAlerted = alertFlag
         val now = System.currentTimeMillis()
@@ -167,24 +166,34 @@ class TtsAlertManager(private val context: Context) {
 
                 if (!isAlertPermitted) return null
 
-                val lastSpokenMs = lastSpokenTime
-                if (now - lastSpokenMs < 3000L) return null
+                // Jika status semantik sama (kepala tidak bergerak, zona tidak memburuk),
+                // abaikan sepenuhnya (zero spam).
+                if (isSameSemanticState) {
+                    Log.d(TAG, "Muted by Semantic Memory (Zone & Heading unchanged)")
+                    return null
+                }
 
                 if (isMuted) return null
 
                 alertFlag = true
                 resetDebounceFrames = 0
-                lastSeenTime = now
                 lastSpokenTime = now
                 Log.d(TAG, "One-shot triggered: d=${dObj}mm dir=$clockDirection")
                 textToSpeak
             }
             dObj < T && alreadyAlerted -> {
                 resetDebounceFrames = 0
-                lastSeenTime = now
                 val lastSpoken = lastSpokenTime
 
-                // 1. User bergerak maju: Selalu peringatkan ulang setiap 2.5 detik (termasuk update jarak)
+                // Jika zona memburuk atau kepala menoleh ke objek baru, langsung respons
+                if (!isSameSemanticState) {
+                    if (isMuted) return null
+                    lastSpokenTime = now
+                    Log.d(TAG, "Semantic state changed (closer or new heading)")
+                    return textToSpeak
+                }
+
+                // 1. User bergerak maju terus menerus di zona yang sama: Peringatkan setiap 2.5 detik (Heartbeat)
                 if (isMovingForward) {
                     if (now - lastSpoken > 2500L) {
                         lastSpokenTime = now
@@ -212,6 +221,7 @@ class TtsAlertManager(private val context: Context) {
                         alertFlag = false
                         resetDebounceFrames = 0
                         Log.d(TAG, "Flag reset (D_RESET): d=${dObj}mm")
+                        speakQueue("Jalan di depan kosong")
                     }
                 } else {
                     resetDebounceFrames = 0
@@ -237,14 +247,6 @@ class TtsAlertManager(private val context: Context) {
         scope.launch { ttsFlow.emit(TtsMessage(text, flush = false)) }
     }
 
-    /** Memasukkan teks ke antrean TTS (untuk jalan kosong). Mencegah interupsi jika baru saja ada peringatan. */
-    fun speakAdd(text: String) {
-        if (isMuted || !isInitialized) return
-        if (System.currentTimeMillis() - lastSpokenTime < 3000L) return
-        if (tts?.isSpeaking == true) return
-        scope.launch { ttsFlow.emit(TtsMessage(text, flush = true)) }
-    }
-
     /** Memaksa TTS mengucapkan teks seketika, menimpa prioritas dan status mute. */
     fun speakForce(text: String) {
         if (!isInitialized) return
@@ -255,7 +257,6 @@ class TtsAlertManager(private val context: Context) {
     fun resetAllFlags() {
         alertFlag = false
         resetDebounceFrames = 0
-        lastSeenTime = 0L
         lastSpokenTime = 0L
         Log.d(TAG, "Semua flag one-shot di-reset")
     }
@@ -275,7 +276,6 @@ class TtsAlertManager(private val context: Context) {
         tts = null
         ttsReady.set(false)
         alertFlag = false
-        lastSeenTime = 0L
         lastSpokenTime = 0L
         scope.cancel()
         Log.d(TAG, "TTS engine shutdown")

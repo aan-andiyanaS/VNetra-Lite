@@ -4,6 +4,18 @@ import android.content.Context
 import android.util.Log
 
 /**
+ * Data class untuk membungkus seluruh metrik latensi untuk kebutuhan UI Layer.
+ */
+data class LatencyMetrics(
+    val hwPing: Long,
+    val serialPing: Long,
+    val algoPing: Long,
+    val ttsPing: Long,
+    val btPing: Long,
+    val totalPing: Long
+)
+
+/**
  * LatencyLogger
  *
  * Mencatat seluruh nilai latensi ke Logcat dengan tag "LAT" dan mengekspornya ke format CSV secara periodik (setiap 1 detik).

@@ -87,27 +87,17 @@ class StreamActivity : AppCompatActivity() {
     private val safeImuData: FloatArray?
         get() = if (System.currentTimeMillis() - lastImuReceivedAt > 200L) null else latestImuData
 
-    @Volatile private var pingHardware: Long = 0
-    @Volatile private var pingSerialTransmisi: Long = 0
-    @Volatile private var pingAlgoritma: Long = 0
-    @Volatile private var pingTts: Long = 0
-
     private var latencyMonitorJob: Job? = null
 
     // LatencyLogger telah dipindahkan ke StreamService agar tetap merekam di latar belakang.
 
     private lateinit var tofGridRenderer: ToFGridRenderer
 
-    private val HOLDOVER_FRAMES = 15
-
     private var fpsWindowStart = 0L
 
     private var badgeSwipeRevealed = false
 
     @Volatile private var isAkhiring = false
-
-    // ponytail: cache BT status daripada query AudioManager 2x setiap 200ms
-    @Volatile private var hasBluetooth: Boolean = false
 
     @Volatile private var cachedTofGridSize = 0
 
@@ -385,16 +375,11 @@ class StreamActivity : AppCompatActivity() {
         tofCollectJob?.cancel()
         latencyMonitorJob?.cancel()
 
-        pingHardware = 0
-        pingSerialTransmisi = 0
-        pingAlgoritma = 0
-        pingTts = 0
-
         latencyMonitorJob = lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-                while (isActive) {
-                    kotlinx.coroutines.delay(200)
-                    updateLatencyMonitorUi()
+                svc.latencyFlow.collect { metrics ->
+                    if (isDestroyed || isFinishing || isAkhiring) return@collect
+                    updateLatencyMonitorUi(metrics)
                 }
             }
         }
@@ -443,10 +428,6 @@ class StreamActivity : AppCompatActivity() {
                         latestTofData = tofData
                         
                         processTofData(tofData)
-
-                        pingHardware = 15L
-                        val wsPing = svc.pingWebsocketFlow.value
-                        pingSerialTransmisi = if (wsPing > 0) wsPing else 5L
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
@@ -464,9 +445,7 @@ class StreamActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 if (::tofGridRenderer.isInitialized) {
                     val currentSize = tofGridRenderer.getGridSize()
-                    if (tofData.size != currentSize) {
-                        val detectedMode = 8
-                    } else {
+                    if (tofData.size == currentSize) {
                         cachedTofGridSize = currentSize
                     }
                 }
@@ -589,28 +568,20 @@ class StreamActivity : AppCompatActivity() {
     }
 
     /** Memperbarui UI monitor latensi dan bottleneck. */
-    private fun updateLatencyMonitorUi() {
+    private fun updateLatencyMonitorUi(metrics: com.airi.vnetra.util.LatencyMetrics) {
         if (isDestroyed || isFinishing) return
         
-        val hardware = pingHardware
-        val serial = pingSerialTransmisi
-        val algo = pingAlgoritma
-        val tts = pingTts
-        
-        val btLatency = if (hasBluetooth) 150L else 0L
-        val btValue = if (hasBluetooth) "$btLatency ms" else "null"
-        
-        val totalPing = hardware + serial + algo + tts + btLatency
+        val btValue = if (metrics.btPing > 0) "${metrics.btPing} ms" else "null"
 
         val text = """
             === LATENCY PING ===
-            Sensor HW : $hardware ms
-            Serial    : $serial ms
-            Algoritma : $algo ms
-            Audio TTS : $tts ms
+            Sensor HW : ${metrics.hwPing} ms
+            Serial    : ${metrics.serialPing} ms
+            Algoritma : ${metrics.algoPing} ms
+            Audio TTS : ${metrics.ttsPing} ms
             Bluetooth : $btValue
             ------------------------------
-            TOTAL PING: $totalPing ms
+            TOTAL PING: ${metrics.totalPing} ms
             ==============================
         """.trimIndent()
         runCatching {
@@ -621,11 +592,6 @@ class StreamActivity : AppCompatActivity() {
     /** Menghapus tampilan visual jika data sensor sudah basi (stale). */
     private fun clearStaleSensorDisplay() {
         if (isDestroyed || isFinishing) return
-
-        pingHardware = 0
-        pingSerialTransmisi = 0
-        pingAlgoritma = 0
-        pingTts = 0
 
         runOnUiThread {
             runCatching {
