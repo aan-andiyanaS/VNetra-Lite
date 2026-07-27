@@ -25,10 +25,10 @@ class NavigationCoordinator {
         val yawRate   = imuData?.getOrElse(4) { 0f } ?: 0f
         val aLinMag   = imuData?.getOrElse(5) { 0f } ?: 0f
 
-        val isHeadRotatingLocal = abs(pitchRate) > 5f || abs(yawRate) > 5f || abs(rollRate) > 5f
+        val isHeadRotatingLocal = abs(pitchRate) > 45f || abs(yawRate) > 45f || abs(rollRate) > 45f
         isStationary = (aLinMag <= 0.02f) && !isHeadRotatingLocal
         
-        val isAccelerating = (aLinMag > 2.94f) && !isHeadRotatingLocal
+        val isAccelerating = (aLinMag > 1.0f) && !isHeadRotatingLocal
         if (isAccelerating) {
             movingForwardConsecutiveFrames++
         } else {
@@ -37,7 +37,7 @@ class NavigationCoordinator {
     }
 
     /** Mendeteksi apakah kepala pengguna sedang memutar melebihi ambang batas. */
-    fun isHeadRotating(imuData: FloatArray?, threshold: Float = 10f): Boolean {
+    fun isHeadRotating(imuData: FloatArray?, threshold: Float = 45f): Boolean {
         val pitchRate = imuData?.getOrElse(2) { 0f } ?: 0f
         val rollRate  = imuData?.getOrElse(3) { 0f } ?: 0f
         val yawRate   = imuData?.getOrElse(4) { 0f } ?: 0f

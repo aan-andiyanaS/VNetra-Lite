@@ -753,12 +753,14 @@ class StreamActivity : AppCompatActivity() {
             }
 
             val isDanger = isBlockedState
+            val cDir = terrainAnalysis?.clockDirection ?: 12
             ttsAlertManager.smartNavigation.processNavigationState(
                 isDanger = isDanger,
                 isMovingForward = isMovingForward,
                 isTurning = isTurning,
                 isStationary = isStationary,
-                isHeadRotating = isHeadRotating
+                isHeadRotating = isHeadRotating,
+                clockDirection = cDir
             )
             pingTts = System.currentTimeMillis() - ttsStart
         }

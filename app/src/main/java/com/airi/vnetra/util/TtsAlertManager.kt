@@ -220,9 +220,9 @@ class TtsAlertManager(private val context: Context) {
                 val pitchRate = imuData?.getOrElse(2) { 0f } ?: 0f
                 val rollRate  = imuData?.getOrElse(3) { 0f } ?: 0f
                 val yawRateImu = imuData?.getOrElse(4) { 0f } ?: 0f
-                val isHeadRotatingNow = kotlin.math.abs(pitchRate) > 5f ||
-                    kotlin.math.abs(yawRateImu) > 5f ||
-                    kotlin.math.abs(rollRate) > 5f
+                val isHeadRotatingNow = kotlin.math.abs(pitchRate) > 45f ||
+                    kotlin.math.abs(yawRateImu) > 45f ||
+                    kotlin.math.abs(rollRate) > 45f
                 if (isHeadRotatingNow) return null
 
                 val pitchAngle = imuData?.getOrElse(0) { 0f } ?: 0f
@@ -291,9 +291,9 @@ class TtsAlertManager(private val context: Context) {
                 val pitchRate = imuData?.getOrElse(2) { 0f } ?: 0f
                 val rollRate  = imuData?.getOrElse(3) { 0f } ?: 0f
                 val yawRateImu = imuData?.getOrElse(4) { 0f } ?: 0f
-                val isHeadRotatingNow = kotlin.math.abs(pitchRate) > 10f ||
-                    kotlin.math.abs(yawRateImu) > 10f ||
-                    kotlin.math.abs(rollRate) > 10f
+                val isHeadRotatingNow = kotlin.math.abs(pitchRate) > 45f ||
+                    kotlin.math.abs(yawRateImu) > 45f ||
+                    kotlin.math.abs(rollRate) > 45f
                 if (!isHeadRotatingNow) {
 
                     val isStaticObstacle = trackingId == SpatialMappingUtils.WALL_TRACKING_ID
@@ -375,7 +375,8 @@ class TtsAlertManager(private val context: Context) {
             isMovingForward: Boolean,
             isTurning: Boolean,
             isStationary: Boolean = false,
-            isHeadRotating: Boolean = false
+            isHeadRotating: Boolean = false,
+            clockDirection: Int = 12
         ) {
             val now = System.currentTimeMillis()
 
@@ -391,10 +392,11 @@ class TtsAlertManager(private val context: Context) {
                         currentState = NavState.WALL_WARNING
                         lastWarningTime = now
                         if (!isTurning) {
+                            val dirStr = SpatialMappingUtils.clockDirectionToTts(clockDirection)
                             if (isMovingForward) {
-                                speak("Awas, tembok di depan")
+                                speak("Awas, tembok $dirStr")
                             } else if (!isStationary) {
-                                speak("Awas, tembok di depan")
+                                speak("Awas, tembok $dirStr")
                             }
                         }
                         dangerCandidateTime = 0L
