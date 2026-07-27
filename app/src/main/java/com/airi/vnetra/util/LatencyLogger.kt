@@ -33,13 +33,13 @@ class LatencyLogger(context: Context) {
         try {
             val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
             val filename = "VNetra_Latency_$timestamp.csv"
-            val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS)
-            if (dir != null) {
-                if (!dir.exists()) dir.mkdirs()
-                csvFile = java.io.File(dir, filename)
-                csvWriter = java.io.FileWriter(csvFile, true)
-                Log.i(TAG, "CSV Logger initialized: ${csvFile?.absolutePath}")
-            }
+            @Suppress("DEPRECATION")
+            val dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
+            val appDir = java.io.File(dir, "VNetra_Logs")
+            if (!appDir.exists()) appDir.mkdirs()
+            csvFile = java.io.File(appDir, filename)
+            csvWriter = java.io.FileWriter(csvFile, true)
+            Log.i(TAG, "CSV Logger initialized: ${csvFile?.absolutePath}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to init CSV Logger", e)
         }
@@ -117,6 +117,14 @@ class LatencyLogger(context: Context) {
             csvWriter?.append(row)?.append("\n")
             csvWriter?.flush()
         } catch (e: Exception) { Log.e(TAG, "Failed to write row", e) }
+
+        // Kosongkan buffer setelah log agar data selanjutnya murni per-detik
+        bufHardware.clear()
+        bufSerial.clear()
+        bufAlgo.clear()
+        bufTts.clear()
+        bufBt.clear()
+        bufTotal.clear()
     }
 
     private fun getMin(buf: ArrayDeque<Long>) = if (buf.isEmpty()) 0 else buf.min()
