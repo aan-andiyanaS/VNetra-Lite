@@ -1,4 +1,4 @@
-﻿# VNetra-Lite — Issue & Changelog Log
+# VNetra-Lite: Comprehensive Technical Audit & Resolution Log
 
 > **Base Commit:** ``1f890f3`` — *Final Audit DDD: Fix IMU axis mapping, TTS semantic grammar, clear path delay*
 > **Latest Commit:** ``8bb971c`` — *feat: Display dynamic threshold T and vAvg on StreamActivity UI*
@@ -6,7 +6,7 @@
 
 ---
 
-## ISSUE-006 · ``8bb971c`` — feat: Physics State Exposed to UI
+## ISSUE-006 · ``8bb971c`` — Observability: Real-time Physics State Exposure to UI Layer
 **Tanggal:** 28 Juli 2026
 **Kategori:** Feature / Observability
 
@@ -32,7 +32,7 @@ Nilai Speed dan Thresh yang bergerak real-time di layar menjadi bukti visual lan
 
 ---
 
-## ISSUE-005 · ``f43b666`` — fix: LatencyLogger Scoped Storage & Buffer Isolation Bug
+## ISSUE-005 · ``f43b666`` — Data Integrity: Scoped Storage Compliance & Telemetry Buffer Isolation
 **Tanggal:** 28 Juli 2026
 **Kategori:** Bug Fix / Data Integrity
 
@@ -50,7 +50,7 @@ Nilai Speed dan Thresh yang bergerak real-time di layar menjadi bukti visual lan
 
 ---
 
-## ISSUE-004 · ``4ca2b60`` — fix: Open-Space Pedometer Bounded to Dynamic T
+## ISSUE-004 · ``4ca2b60`` — Physics Engine: Semantic Coherence of Open-Space Odometry via Dynamic Thresholding
 **Tanggal:** 28 Juli 2026
 **Kategori:** Logic Bug / Physics Correctness
 
@@ -69,7 +69,7 @@ Counter `openSpaceWalkFrames` kini hanya bertambah jika `dObj > T`, menjamin koh
 
 ---
 
-## ISSUE-003 · ``43a6bb7`` — fix: SpatialMappingUtils Cap & Wall Column Logic
+## ISSUE-003 · ``43a6bb7`` — Sensor Fusion: Dynamic Range Calibration & Obstacle Classification Normalization
 **Tanggal:** 28 Juli 2026
 **Kategori:** Logic Bug / Sensor Consistency
 
@@ -86,7 +86,7 @@ Logika deteksi "Tembok" menggunakan indeks kolom yang salah, menyebabkan beberap
 
 ---
 
-## ISSUE-002 · ``f3f42b9`` + ``995350c`` — refactor: Final Massive Audit (SRP, AudioManager EventCallback, Dead Variable Purge)
+## ISSUE-002 · ``f3f42b9`` + ``995350c`` — Architecture: SRP Enforcement, Event-Driven Refactoring & Memory Optimization
 **Tanggal:** 28 Juli 2026
 **Kategori:** Architecture / Refactoring / SRP
 
@@ -120,7 +120,7 @@ Terdapat beberapa variabel sisa refactor sebelumnya yang tidak pernah dibaca nam
 
 ---
 
-## ISSUE-001 · ``adef477`` — fix: TTS Race Condition, UI Double-Mutation, Coroutine Leak
+## ISSUE-001 · ``adef477`` — Concurrency & Memory Safety: Thread-Safe State Mutation & Coroutine Lifecycle Management
 **Tanggal:** 27 Juli 2026
 **Kategori:** Bug Fix / Memory Safety / Concurrency
 
