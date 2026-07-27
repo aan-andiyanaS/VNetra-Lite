@@ -151,6 +151,9 @@ class StreamService : Service() {
     private val _latencyFlow = MutableStateFlow(LatencyMetrics(0, 0, 0, 0, 0, 0))
     val latencyFlow: StateFlow<LatencyMetrics> = _latencyFlow.asStateFlow()
 
+    private val _physicsFlow = MutableStateFlow<NavigationCoordinator.ObstaclePhysics?>(null)
+    val physicsFlow: StateFlow<NavigationCoordinator.ObstaclePhysics?> = _physicsFlow.asStateFlow()
+
     @Volatile
     private var isBluetoothHeadsetConnected = false
 
@@ -776,6 +779,7 @@ class StreamService : Service() {
             val objectLabel = terrainAnalysis?.type ?: "halangan"
 
             val physics = navigationCoordinator.calculateDynamicThreshold(dObj, objectLabel, imuSnap)
+            _physicsFlow.value = physics
 
             val prevHasAlerts = ttsAlertManager.hasActiveAlerts()
             val obstacleAlert = ttsAlertManager.process(

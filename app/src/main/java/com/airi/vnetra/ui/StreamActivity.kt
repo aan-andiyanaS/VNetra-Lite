@@ -74,6 +74,7 @@ class StreamActivity : AppCompatActivity() {
     private var stateCollectJob: Job? = null
     private var imuCollectJob:   Job? = null
     private var tofCollectJob:   Job? = null
+    private var physicsCollectJob: Job? = null
     private var ipAddress:       String = ""
 
     private var currentTopInset = 0
@@ -436,6 +437,23 @@ class StreamActivity : AppCompatActivity() {
                 }
             }
         }
+
+        physicsCollectJob?.cancel()
+        physicsCollectJob = lifecycleScope.launch(Dispatchers.Default) {
+            lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                svc.physicsFlow.collect { physics ->
+                    if (isDestroyed || isFinishing || isAkhiring) return@collect
+                    if (physics != null) {
+                        withContext(Dispatchers.Main) {
+                            if (!isDestroyed && !isFinishing && !isAkhiring) {
+                                binding.tvPhysicsVelocity.text = "Speed : %5.2f m/s".format(physics.vAvg)
+                                binding.tvPhysicsThreshold.text = "Thresh: %4d mm".format(physics.dynamicThresholdT)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun processTofData(
@@ -564,6 +582,7 @@ class StreamActivity : AppCompatActivity() {
         runCatching { stateCollectJob?.cancel() };   stateCollectJob   = null
         runCatching { imuCollectJob?.cancel() };     imuCollectJob     = null
         runCatching { tofCollectJob?.cancel() };     tofCollectJob     = null
+        runCatching { physicsCollectJob?.cancel() }; physicsCollectJob = null
         runCatching { latencyMonitorJob?.cancel() }; latencyMonitorJob = null
     }
 
@@ -599,6 +618,8 @@ class StreamActivity : AppCompatActivity() {
                 binding.tvImuRoll.text  = "Roll:  —"
                 binding.tvImuYaw.text   = "Yaw:   —"
                 binding.tvImuAccel.text = "Accel: —"
+                binding.tvPhysicsVelocity.text = "Speed : —"
+                binding.tvPhysicsThreshold.text = "Thresh: —"
                 binding.tvLatencyMonitor.text = "=== LATENCY PING ===\nSensor HW : —\nSerial    : —\nAlgoritma : —\nAudio TTS : —\nBluetooth : —\n------------------------------\nTOTAL PING: —\n=============================="
                 if (::tofGridRenderer.isInitialized) {
                     tofGridRenderer.clearGrid()

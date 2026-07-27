@@ -177,6 +177,23 @@
                 android:textColor="#FFFFFF"
                 android:textSize="10sp"
                 android:fontFamily="monospace" />
+            <TextView
+                android:id="@+id/tvPhysicsVelocity"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Speed:  0.00 m/s"
+                android:textColor="#80DEEA"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:layout_marginTop="4dp" />
+            <TextView
+                android:id="@+id/tvPhysicsThreshold"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Thresh: 0 mm"
+                android:textColor="#80DEEA"
+                android:textSize="10sp"
+                android:fontFamily="monospace" />
         </LinearLayout>
     </LinearLayout>
 
