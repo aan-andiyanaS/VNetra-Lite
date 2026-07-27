@@ -181,9 +181,9 @@ class NavigationCoordinator {
 
         // 2. Evaluasi Pedometer Ruang Terbuka (Translational Shift)
         val aLin = imuData?.getOrElse(5) { 0f } ?: 0f
-        if (dObj > 1500 && aLin > 1.0f && !isHeadRotatingNow) {
+        if (dObj > T && aLin > 1.0f && !isHeadRotatingNow) {
             openSpaceWalkFrames++
-        } else if (dObj <= 1500) {
+        } else if (dObj <= T) {
             openSpaceWalkFrames = 0
         }
 
