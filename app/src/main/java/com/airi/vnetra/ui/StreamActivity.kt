@@ -96,7 +96,6 @@ class StreamActivity : AppCompatActivity() {
     @Volatile private var pingTts: Long = 0
 
     private var latencyMonitorJob: Job? = null
-    private var muteToggleJob: Job? = null
 
     /**
      * LatencyLogger
@@ -219,12 +218,7 @@ class StreamActivity : AppCompatActivity() {
 
     private val latencyLogger = LatencyLogger()
 
-    private lateinit var ttsAlertManager: TtsAlertManager
-    @Volatile private var initialYawOffset: Float? = null
-    private lateinit var navigationCoordinator: NavigationCoordinator
     private lateinit var tofGridRenderer: ToFGridRenderer
-
-    @Volatile private var isBlockedState = false
 
     private val HOLDOVER_FRAMES = 15
 
@@ -335,10 +329,6 @@ class StreamActivity : AppCompatActivity() {
         requestNotificationPermission()
         requestBatteryOptimizationBypass()
 
-        ttsAlertManager = TtsAlertManager(this)
-        ttsAlertManager.initTts()
-        navigationCoordinator = NavigationCoordinator()
-
     }
 
     /** Siklus hidup Android: dieksekusi saat antarmuka mulai tampil dan mengikat service. */
@@ -379,7 +369,7 @@ class StreamActivity : AppCompatActivity() {
             streamService = null
         }
 
-        if (::ttsAlertManager.isInitialized) ttsAlertManager.shutdown()
+        super.onDestroy()
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
@@ -516,7 +506,6 @@ class StreamActivity : AppCompatActivity() {
         imuCollectJob?.cancel()
         tofCollectJob?.cancel()
         latencyMonitorJob?.cancel()
-        muteToggleJob?.cancel()
 
         pingHardware = 0
         pingSerialTransmisi = 0
@@ -557,24 +546,6 @@ class StreamActivity : AppCompatActivity() {
 
 
 
-        muteToggleJob = lifecycleScope.launch(Dispatchers.Default) {
-            try {
-                svc.muteToggleFlow.collect {
-                    if (::ttsAlertManager.isInitialized) {
-                        ttsAlertManager.isMuted = !ttsAlertManager.isMuted
-                        if (ttsAlertManager.isMuted) {
-                            ttsAlertManager.speakForce("Suara dimatikan sementara")
-                        } else {
-                            ttsAlertManager.speakForce("Suara diaktifkan kembali")
-                        }
-                    }
-                }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("StreamActivity", "Mute toggle collect error", e)
-            }
-        }
 
         imuCollectJob = lifecycleScope.launch(Dispatchers.Default) {
             try {
@@ -587,9 +558,6 @@ class StreamActivity : AppCompatActivity() {
                         if (!isDestroyed && !isFinishing && !isAkhiring && imuData.size >= 6) {
                             val converged = imuData.getOrElse(8) { 0f } > 0.5f
                             if (converged) {
-                                if (initialYawOffset == null) {
-                                    initialYawOffset = imuData[2]
-                                }
                                 binding.tvImuAccel.text = "Accel     : %6.2f m/s²".format(imuData[5])
                             } else {
                                 binding.tvImuAccel.text = "Mahony: warming up..."
@@ -689,95 +657,17 @@ class StreamActivity : AppCompatActivity() {
      * @param tofData Data jarak dari sensor ToF.
      */
     private fun evaluateObstacles(tofData: IntArray) {
-        val imuSnap = safeImuData
-        val rawTheta = imuSnap?.getOrElse(0) { 0f } ?: 0f
-        val thetaDeg = rawTheta - 20f
-
-        val startAlgo = System.currentTimeMillis()
-        var closeThreatExists = false
-        var allClear = true
-
-        navigationCoordinator.updateMovementState(imuSnap)
-        val isMovingForward = navigationCoordinator.movingForwardConsecutiveFrames >= 3
-        val yawRate = imuSnap?.getOrElse(4) { 0f } ?: 0f
-        val isTurning = kotlin.math.abs(yawRate) > 10f
-        val isHeadRotating = navigationCoordinator.isHeadRotating(imuSnap, 15f)
-        val isStationary = navigationCoordinator.isStationary
-
-        if (isMovingForward && ::ttsAlertManager.isInitialized && ttsAlertManager.isMuted) {
-            ttsAlertManager.isMuted = false
-            ttsAlertManager.speakForce("Pergerakan terdeteksi, suara diaktifkan kembali")
-        }
-
-        if (::ttsAlertManager.isInitialized) {
-            val ttsStart = System.currentTimeMillis()
-            val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData, thetaDeg)
-
-            if (terrainAnalysis != null) {
-                val obstacleAlert = ttsAlertManager.process(
-                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
-                    dObj = terrainAnalysis.averageDistance,
-                    clockDirection = terrainAnalysis.clockDirection,
-                    objectLabel = terrainAnalysis.type,
-                    isMovingForward = isMovingForward,
-                    isStationary = isStationary,
-                    imuData = imuSnap
-                )
-                if (obstacleAlert != null) {
-                    ttsAlertManager.speak(obstacleAlert)
-                }
-                
-                val adaptiveT = if (isMovingForward) 1200 else 800
-                if (terrainAnalysis.averageDistance < adaptiveT) {
-                    closeThreatExists = true
-                }
-                if (terrainAnalysis.averageDistance < adaptiveT + TtsAlertManager.EPS_CLEAR_ZONE) {
-                    allClear = false
-                }
-            } else {
-                ttsAlertManager.process(
-                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
-                    dObj = 2000,
-                    clockDirection = 12,
-                    objectLabel = "tembok",
-                    isMovingForward = isMovingForward,
-                    isStationary = isStationary,
-                    imuData = imuSnap
-                )
-            }
-
-            if (closeThreatExists) {
-                isBlockedState = true
-            } else if (allClear && isBlockedState) {
-                isBlockedState = false
-            }
-
-            val isDanger = isBlockedState
-            val cDir = terrainAnalysis?.clockDirection ?: 12
-            ttsAlertManager.smartNavigation.processNavigationState(
-                isDanger = isDanger,
-                isMovingForward = isMovingForward,
-                isTurning = isTurning,
-                isStationary = isStationary,
-                isHeadRotating = isHeadRotating,
-                clockDirection = cDir
-            )
-            pingTts = System.currentTimeMillis() - ttsStart
-        }
-        pingAlgoritma = System.currentTimeMillis() - startAlgo
+        // Logika evaluasi (TTS dan Navigasi) telah dipindahkan ke StreamService
+        // untuk mendukung mode Latar Belakang (Pocket Mode).
     }
 
 
     /** Menampilkan popup peringatan konfirmasi sebelum pengguna memutus koneksi. */
     private fun konfirmasiAkhiriProses() {
         if (isDestroyed || isFinishing || isAkhiring) return
-        AlertDialog.Builder(this)
-            .setTitle("Akhiri Proses")
-            .setMessage("Yakin ingin menghentikan streaming dan menutup aplikasi?\n\nSaat dibuka kembali, aplikasi akan otomatis terhubung ke ESP32-S3.")
-            .setPositiveButton("Akhiri") { _, _ -> akhiriProses() }
-            .setNegativeButton("Batal", null)
-            .show()
+        moveTaskToBack(true)
     }
+
 
     /** Mengakhiri seluruh proses dan menutup koneksi secara aman. */
     private fun akhiriProses() {
@@ -864,7 +754,6 @@ class StreamActivity : AppCompatActivity() {
         runCatching { imuCollectJob?.cancel() };     imuCollectJob     = null
         runCatching { tofCollectJob?.cancel() };     tofCollectJob     = null
         runCatching { latencyMonitorJob?.cancel() }; latencyMonitorJob = null
-        runCatching { muteToggleJob?.cancel() };     muteToggleJob     = null
     }
 
     /** Memperbarui UI monitor latensi dan bottleneck. */
@@ -900,13 +789,6 @@ class StreamActivity : AppCompatActivity() {
     /** Menghapus tampilan visual jika data sensor sudah basi (stale). */
     private fun clearStaleSensorDisplay() {
         if (isDestroyed || isFinishing) return
-
-        if (::ttsAlertManager.isInitialized) {
-            ttsAlertManager.stopSpeaking()
-            ttsAlertManager.resetAllFlags()
-        }
-        isBlockedState = false
-        initialYawOffset = null
 
         pingHardware = 0
         pingSerialTransmisi = 0

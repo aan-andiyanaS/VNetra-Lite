@@ -44,6 +44,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.airi.vnetra.util.NavigationCoordinator
+import com.airi.vnetra.util.TtsAlertManager
+import com.airi.vnetra.util.SpatialMappingUtils
+import kotlinx.coroutines.flow.combine
+
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -101,6 +106,14 @@ class StreamService : Service() {
     private var reconnectAttempts           = 0
     private var ipAddress                   = ""
     private var stopped                     = false
+
+    private lateinit var navigationCoordinator: NavigationCoordinator
+    private lateinit var ttsAlertManager: TtsAlertManager
+
+    private var closeThreatExists = false
+    private var isBlockedState = false
+    private var allClear = true
+
     private var lastDataReceivedTime        = 0L
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -133,8 +146,6 @@ class StreamService : Service() {
     private val _pingWebsocketFlow = MutableStateFlow(-1L)
     val pingWebsocketFlow: StateFlow<Long> = _pingWebsocketFlow.asStateFlow()
 
-    private val _muteToggleFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    val muteToggleFlow: SharedFlow<Unit> = _muteToggleFlow
 
     /** Mengikat komponen UI (Activity) ke komponen latar belakang (Service). */
     override fun onBind(intent: Intent?): IBinder = binder
@@ -188,7 +199,14 @@ class StreamService : Service() {
     }
 
     /** Menghentikan koneksi stream, websocket, UDP, dan membebaskan resource (WakeLock/WifiLock). */
+
     fun stopStreamAndRelease() {
+        if (_connectionState.value == ConnectionState.CONNECTED) {
+             if (::ttsAlertManager.isInitialized) {
+                 ttsAlertManager.speakForce("VNetra Terputus, masuk mode standby")
+             }
+        }
+
         runCatching { streamJob?.cancel() };       streamJob = null
         runCatching { pingJob?.cancel() };         pingJob = null
         runCatching { watchdogJob?.cancel() };     watchdogJob = null
@@ -261,6 +279,9 @@ class StreamService : Service() {
                                 reconnectAttempts = 0
                                 setConnectionState(ConnectionState.CONNECTED)
                                 sendConnectedHeadsUp()
+                                if (::ttsAlertManager.isInitialized) {
+                                    ttsAlertManager.speakForce("VNetra Terhubung")
+                                }
                             }
 
                             pingJob?.cancel()
@@ -281,7 +302,9 @@ class StreamService : Service() {
 
                                 _pingWebsocketFlow.value = rtt / 2
                             } else if (text == "CMD:TOGGLE_MUTE") {
-                                _muteToggleFlow.tryEmit(Unit)
+                                if (::ttsAlertManager.isInitialized) {
+                                    ttsAlertManager.isMuted = !ttsAlertManager.isMuted
+                                }
                             }
                         }
 
@@ -319,6 +342,9 @@ class StreamService : Service() {
                                 Log.e(TAG, "WS failure: ${t.message}")
                                 activeWebSocket = null
                                 setConnectionState(ConnectionState.DISCONNECTED)
+                                if (::ttsAlertManager.isInitialized) {
+                                    ttsAlertManager.speakForce("VNetra Terputus")
+                                }
                                 if (!done.isCompleted) done.complete(Unit)
                             }
                         }
@@ -334,6 +360,9 @@ class StreamService : Service() {
                             runCatching {
                                 activeWebSocket = null
                                 setConnectionState(ConnectionState.DISCONNECTED)
+                                if (::ttsAlertManager.isInitialized) {
+                                    ttsAlertManager.speakForce("VNetra Terputus")
+                                }
                                 if (!done.isCompleted) done.complete(Unit)
                             }
                         }
@@ -589,6 +618,7 @@ class StreamService : Service() {
                 java.nio.ByteBuffer.wrap(payload)
                     .order(java.nio.ByteOrder.LITTLE_ENDIAN)
                     .asFloatBuffer().get(floats)
+                latestImuSnap = floats
                 _imuFlow.emit(floats)
             }
             payload.size >= 24 -> {
@@ -596,6 +626,7 @@ class StreamService : Service() {
                 java.nio.ByteBuffer.wrap(payload, 0, 24)
                     .order(java.nio.ByteOrder.LITTLE_ENDIAN)
                     .asFloatBuffer().get(floats, 0, 6)
+                latestImuSnap = floats
                 _imuFlow.emit(floats)
             }
             else -> Log.w(TAG, "IMU payload terlalu kecil: ${payload.size}B (min 24B diperlukan)")
@@ -628,7 +659,76 @@ class StreamService : Service() {
     }
 
     /** Dipanggil saat komponen dihancurkan; membersihkan resource. */
+
+    override fun onCreate() {
+        super.onCreate()
+        navigationCoordinator = NavigationCoordinator()
+        ttsAlertManager = TtsAlertManager(this)
+        ttsAlertManager.initTts()
+        
+        // Start processing loop for TTS and Obstacle Detection
+        serviceScope.launch {
+            _tofFlow.collect { tofData ->
+                evaluateObstacles(tofData)
+            }
+        }
+    }
+
+    private var latestImuSnap: FloatArray? = null
+    
+    private fun getSafeImuData(): FloatArray? {
+        // Implement simple cache from _imuFlow or just use latest
+        return latestImuSnap
+    }
+
+    private fun evaluateObstacles(tofData: IntArray) {
+        val imuSnap = latestImuSnap
+        val rawTheta = imuSnap?.getOrElse(0) { 0f } ?: 0f
+        val thetaDeg = rawTheta - 20f
+
+        navigationCoordinator.updateMovementState(imuSnap)
+        val isMovingForward = navigationCoordinator.movingForwardConsecutiveFrames >= 3
+        val yawRate = imuSnap?.getOrElse(4) { 0f } ?: 0f
+        val isTurning = kotlin.math.abs(yawRate) > 10f
+        val isHeadRotating = navigationCoordinator.isHeadRotating(imuSnap, 15f)
+        val isStationary = navigationCoordinator.isStationary
+
+        if (isMovingForward && ::ttsAlertManager.isInitialized && ttsAlertManager.isMuted) {
+            ttsAlertManager.isMuted = false
+            ttsAlertManager.speakForce("Pergerakan terdeteksi, suara diaktifkan kembali")
+        }
+
+        if (::ttsAlertManager.isInitialized) {
+            val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData, thetaDeg)
+            if (terrainAnalysis != null) {
+                val obstacleAlert = ttsAlertManager.process(
+                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
+                    dObj = terrainAnalysis.averageDistance,
+                    clockDirection = terrainAnalysis.clockDirection,
+                    objectLabel = terrainAnalysis.type,
+                    isMovingForward = isMovingForward,
+                    isStationary = isStationary,
+                    imuData = imuSnap
+                )
+                if (obstacleAlert != null) {
+                    ttsAlertManager.speak(obstacleAlert)
+                }
+            } else {
+                ttsAlertManager.process(
+                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
+                    dObj = 2000,
+                    clockDirection = 12,
+                    objectLabel = "tembok",
+                    isMovingForward = isMovingForward,
+                    isStationary = isStationary,
+                    imuData = imuSnap
+                )
+            }
+        }
+    }
+
     override fun onDestroy() {
+        if (::ttsAlertManager.isInitialized) ttsAlertManager.shutdown()
         super.onDestroy()
         stopStreamAndRelease()
         cancelAllNotifications()
