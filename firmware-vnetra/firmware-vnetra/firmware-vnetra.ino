@@ -68,8 +68,8 @@
 
 // ======== SENSOR PIN & CONFIG ========
 #define SDA_PIN 21
-#define SCL_PIN 22
-#define LPN_PIN 19
+#define SCL_PIN 19
+#define LPN_PIN 18
 
 // ---------------------------------------------------------
 // SYNCHRONIZATION & CONFIG

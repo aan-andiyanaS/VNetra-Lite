@@ -25,35 +25,35 @@ flowchart LR
     subgraph ESP32 ["ESP32 DevKit V1"]
         P3V3["3.3V"]
         GND_E["GND"]
-        G22["GPIO22 (SCL)"]
+        G19["GPIO19 (SCL)"]
         G21["GPIO21 (SDA)"]
-        G19["GPIO19 (LPn)"]
+        G18["GPIO18 (LPn)"]
     end
 
     VIN ---|Merah| P3V3
     GND_S ---|Hitam| GND_E
-    SCL_S ---|Hijau| G22
+    SCL_S ---|Hijau| G19
     SDA_S ---|Biru| G21
-    LPN_S ---|Putih| G19
+    LPN_S ---|Putih| G18
 
     classDef sensor fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
     classDef mcu fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
     class VIN,GND_S,SCL_S,SDA_S,LPN_S sensor;
-    class P3V3,GND_E,G22,G21,G19 mcu;
+    class P3V3,GND_E,G19,G21,G18 mcu;
 ```
 
 | Pin VL53L5CX | Pin ESP32 | Warna Kabel | Keterangan |
 |---|---|---|---|
 | **VIN** | **3.3V** | 🔴 Merah | Power supply 3.3V dari board |
 | **GND** | **GND** | ⚫ Hitam | Ground |
-| **SCL** | **GPIO22** | 🟢 Hijau | I2C Clock (`SCL_PIN = 22`) |
+| **SCL** | **GPIO19** | 🟢 Hijau | I2C Clock (`SCL_PIN = 19`) |
 | **SDA** | **GPIO21** | 🔵 Biru | I2C Data (`SDA_PIN = 21`) |
-| **LPn** | **GPIO19** | ⚪ Putih | Low Power enable — ditarik HIGH saat boot (`LPN_PIN = 19`) |
+| **LPn** | **GPIO18** | ⚪ Putih | Low Power enable — ditarik HIGH saat boot (`LPN_PIN = 18`) |
 
 **Catatan:**
 - Pin **INT** tidak digunakan — sensor dipolling via `checkDataReady()`.
 - **LPn wajib HIGH** sebelum inisialisasi agar sensor siap menerima firmware upload ~90KB.
-- I2C diinisialisasi firmware: `Wire.begin(21, 22)`.
+- I2C diinisialisasi firmware: `Wire.begin(21, 19)`.
 
 ---
 
@@ -74,28 +74,28 @@ flowchart LR
     subgraph ESP32 ["ESP32 DevKit V1"]
         P3V3["3.3V"]
         GND_E["GND"]
-        G22["GPIO22 (SCL)"]
+        G19["GPIO19 (SCL)"]
         G21["GPIO21 (SDA)"]
         GNDA["GND (AD0)"]
     end
 
     VIN_B ---|Merah| P3V3
     GND_B ---|Hitam| GND_E
-    SCL_B ---|Hijau| G22
+    SCL_B ---|Hijau| G19
     SDA_B ---|Biru| G21
     AD0_B ---|Hitam| GNDA
 
     classDef sensor fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
     classDef mcu fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
     class VIN_B,GND_B,SCL_B,SDA_B,AD0_B sensor;
-    class P3V3,GND_E,G22,G21,GNDA mcu;
+    class P3V3,GND_E,G19,G21,GNDA mcu;
 ```
 
 | Pin GY-MPU6050 | Pin ESP32 | Warna Kabel | Keterangan |
 |---|---|---|---|
 | **VCC** | **3.3V** | 🔴 Merah | Power 3.3V |
 | **GND** | **GND** | ⚫ Hitam | Ground |
-| **SCL** | **GPIO22** | 🟢 Hijau | I2C Clock — shared bus |
+| **SCL** | **GPIO19** | 🟢 Hijau | I2C Clock — shared bus |
 | **SDA** | **GPIO21** | 🔵 Biru | I2C Data — shared bus |
 | **AD0** | **GND** | ⚫ Hitam | Alamat `0x68`. Firmware: `mpu.begin(0x68, &Wire)` |
 
@@ -302,9 +302,9 @@ flowchart LR
 | **GPIO0** | BOOT Button (input, pull-up) | Push Button (built-in + eksternal paralel) |
 | **GPIO2** | LED built-in | LED bawaan board DevKit V1 |
 | **GPIO13** | Buzzer Output | Buzzer Aktif 3.3V |
-| **GPIO19** | LPn Output | VL53L5CX |
+| **GPIO18** | LPn Output | VL53L5CX |
+| **GPIO19** | I2C SCL | VL53L5CX + MPU6050 (shared bus) |
 | **GPIO21** | I2C SDA | VL53L5CX + MPU6050 (shared bus) |
-| **GPIO22** | I2C SCL | VL53L5CX + MPU6050 (shared bus) |
 
 ### GPIO Terlarang (Flash Internal)
 
@@ -336,11 +336,11 @@ flowchart LR
 | GPIO14 | ✅ Tersedia | General purpose |
 | GPIO16 | ✅ Tersedia | General purpose |
 | GPIO17 | ✅ Tersedia | General purpose |
-| GPIO18 | ✅ Tersedia | SPI Clock (VSPI) |
-| GPIO19 | ⚠️ Terpakai | LPn VL53L5CX |
+| GPIO18 | ⚠️ Terpakai | LPn VL53L5CX |
+| GPIO19 | ⚠️ Terpakai | I2C SCL |
 | GPIO20 | ❌ | Tidak tersedia di DevKit V1 38-pin |
 | GPIO21 | ⚠️ Terpakai | I2C SDA |
-| GPIO22 | ⚠️ Terpakai | I2C SCL |
+| GPIO22 | ✅ Tersedia | General purpose |
 | GPIO23 | ✅ Tersedia | VSPI MOSI |
 | GPIO25 | ✅ Tersedia | DAC1 |
 | GPIO26 | ✅ Tersedia | DAC2 |
@@ -372,7 +372,7 @@ flowchart TB
         BOOT_BI["BOOT Button<br/>(GPIO0, built-in)"]
     end
 
-    subgraph I2C_BUS ["I2C Shared Bus (GPIO21 SDA / GPIO22 SCL)"]
+    subgraph I2C_BUS ["I2C Shared Bus (GPIO21 SDA / GPIO19 SCL)"]
         TOF["VL53L5CX<br/>Sensor Jarak ToF 8×8<br/>(I2C addr: 0x52)"]
         IMU["MPU6050<br/>Akselerometer + Giroskop<br/>(I2C addr: 0x68)"]
     end
@@ -393,8 +393,8 @@ flowchart TB
     AMS -->|"3.3V"| ESP32
 
     %% Data
-    TOF ---|I2C: SDA=21 SCL=22| ESP32
-    IMU ---|I2C: SDA=21 SCL=22<br/>addr=0x68| ESP32
+    TOF ---|I2C: SDA=21 SCL=19| ESP32
+    IMU ---|I2C: SDA=21 SCL=19<br/>addr=0x68| ESP32
     ESP32 ---|GPIO13| BUZZ
     BTN_EXT -.-|"Paralel GPIO0"| BOOT_BI
 
@@ -429,12 +429,12 @@ flowchart TB
 |---|---|---|---|---|---|---|
 | 1 | **VL53L5CX** | VIN | 3.3V | 🔴 Merah | Power | 3.3V dari regulator board |
 | 2 | **VL53L5CX** | GND | GND | ⚫ Hitam | Power | Ground |
-| 3 | **VL53L5CX** | SCL | GPIO22 | 🟢 Hijau | I2C | I2C Clock (`SCL_PIN = 22`) |
+| 3 | **VL53L5CX** | SCL | GPIO19 | 🟢 Hijau | I2C | I2C Clock (`SCL_PIN = 19`) |
 | 4 | **VL53L5CX** | SDA | GPIO21 | 🔵 Biru | I2C | I2C Data (`SDA_PIN = 21`) |
-| 5 | **VL53L5CX** | LPn | GPIO19 | ⚪ Putih | Output | Ditarik HIGH saat boot (`LPN_PIN = 19`) |
+| 5 | **VL53L5CX** | LPn | GPIO18 | ⚪ Putih | Output | Ditarik HIGH saat boot (`LPN_PIN = 18`) |
 | 6 | **MPU6050** | VCC | 3.3V | 🔴 Merah | Power | 3.3V dari regulator board |
 | 7 | **MPU6050** | GND | GND | ⚫ Hitam | Power | Ground |
-| 8 | **MPU6050** | SCL | GPIO22 | 🟢 Hijau | I2C | Shared bus, addr tidak konflik |
+| 8 | **MPU6050** | SCL | GPIO19 | 🟢 Hijau | I2C | Shared bus, addr tidak konflik |
 | 9 | **MPU6050** | SDA | GPIO21 | 🔵 Biru | I2C | Shared bus |
 | 10 | **MPU6050** | AD0 | GND | ⚫ Hitam | Config | Alamat `0x68` |
 | 11 | **Buzzer Aktif** | + (Positif) | GPIO13 | 🔴 Merah | Output | HIGH = bunyi (`BUZZER_PIN = 13`) |
