@@ -76,8 +76,7 @@ class ToFGridRenderer(
     fun updateGrid(
         tofData: IntArray,
         smoothed: FloatArray,
-        holdover: IntArray,
-        alpha: Float = 0.3f
+        holdover: IntArray
     ) {
         if (tofViews.isEmpty() || tofData.size != tofViews.size) return
 
@@ -89,22 +88,18 @@ class ToFGridRenderer(
             if (rawDistance <= 0) {
                 val remaining = holdover[i]
                 if (remaining > 0) {
-                    holdover[i] = remaining - 1
                     val held = smoothed[i].toInt()
                     if (held > 0) {
                         newText = "$held"
                         newColor = getColorForDistance(held, dimmed = true)
                     }
-                } else {
-                    smoothed[i] = 0f
                 }
             } else {
-                holdover[i] = HOLDOVER_FRAMES
-                smoothed[i] = if (smoothed[i] <= 0f) rawDistance.toFloat()
-                              else alpha * rawDistance + (1f - alpha) * smoothed[i]
                 val d = smoothed[i].toInt()
-                newText = "$d"
-                newColor = getColorForDistance(d)
+                if (d > 0) {
+                    newText = "$d"
+                    newColor = getColorForDistance(d)
+                }
             }
 
             if (currentTexts[i] != newText) {

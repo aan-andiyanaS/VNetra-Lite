@@ -210,6 +210,10 @@ class StreamService : Service() {
         if (_connectionState.value == ConnectionState.CONNECTED) {
              if (::ttsAlertManager.isInitialized) {
                  ttsAlertManager.speakForce("VNetra Terputus, masuk mode standby")
+                 ttsAlertManager.resetAllFlags()
+             }
+             if (::navigationCoordinator.isInitialized) {
+                 navigationCoordinator.resetPhysics()
              }
         }
 
@@ -720,7 +724,6 @@ class StreamService : Service() {
 
     private var latestImuSnap: FloatArray? = null
     
-    private var lastHeadTurnTime = 0L
     private var wasAlertActive = false
     
     private fun getSafeImuData(): FloatArray? {
@@ -733,14 +736,7 @@ class StreamService : Service() {
 
         navigationCoordinator.updateMovementState(imuSnap)
         val isMovingForward = navigationCoordinator.movingForwardConsecutiveFrames >= 3
-        val yawRate = imuSnap?.getOrElse(4) { 0f } ?: 0f
-        val isTurning = kotlin.math.abs(yawRate) > 10f
-        val isHeadRotating = navigationCoordinator.isHeadRotating(imuSnap, 15f)
         val isStationary = navigationCoordinator.isStationary
-
-        if (navigationCoordinator.isHeadRotating(imuSnap, 30f)) {
-            lastHeadTurnTime = System.currentTimeMillis()
-        }
 
         if (isMovingForward && ::ttsAlertManager.isInitialized && ttsAlertManager.isMuted) {
             ttsAlertManager.isMuted = false
@@ -749,27 +745,26 @@ class StreamService : Service() {
 
         if (::ttsAlertManager.isInitialized) {
             val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData)
-            if (terrainAnalysis != null) {
-                val obstacleAlert = ttsAlertManager.process(
-                    dObj = terrainAnalysis.nearestDistance,
-                    clockDirection = terrainAnalysis.clockDirection,
-                    objectLabel = terrainAnalysis.type,
-                    isMovingForward = isMovingForward,
-                    isStationary = isStationary,
-                    imuData = imuSnap
-                )
-                if (obstacleAlert != null) {
-                    ttsAlertManager.speak(obstacleAlert)
-                }
-            } else {
-                ttsAlertManager.process(
-                    dObj = 2000,
-                    clockDirection = 12,
-                    objectLabel = "tembok",
-                    isMovingForward = isMovingForward,
-                    isStationary = isStationary,
-                    imuData = imuSnap
-                )
+            
+            val dObj = terrainAnalysis?.nearestDistance ?: 2500
+            val clockDir = terrainAnalysis?.clockDirection ?: 12
+            val objectLabel = terrainAnalysis?.type ?: "halangan"
+
+            val physics = navigationCoordinator.calculateDynamicThreshold(dObj, objectLabel, imuSnap)
+
+            val obstacleAlert = ttsAlertManager.process(
+                dObj = dObj,
+                clockDirection = clockDir,
+                objectLabel = objectLabel,
+                isMovingForward = isMovingForward,
+                isStationary = isStationary,
+                vAvg = physics.vAvg,
+                T = physics.dynamicThresholdT,
+                isAlertPermitted = physics.isAlertPermitted
+            )
+            
+            if (obstacleAlert != null) {
+                ttsAlertManager.speak(obstacleAlert)
             }
             
             // Global Clear Path Logic
@@ -780,7 +775,7 @@ class StreamService : Service() {
                 val isStableNow = !navigationCoordinator.isHeadRotating(imuSnap, 45f)
                 
                 if (isStableNow) {
-                    ttsAlertManager.speak("Jalan di depan kosong")
+                    ttsAlertManager.speakQueue("Jalan di depan kosong")
                     wasAlertActive = false 
                 }
             }

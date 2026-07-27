@@ -19,7 +19,12 @@ object SpatialMappingUtils {
     private const val CLOSE_DIST_MAX = 2000
 
     private val emaDistances = FloatArray(64) { -1f }
+    private val holdoverFrames = IntArray(64) { 0 }
+    private const val MAX_HOLDOVER = 5 // approx 333ms at 15 FPS
     private const val EMA_ALPHA = 0.3f // ponytail: simple, fast smoothing
+
+    fun getSmoothedDistances(): FloatArray = emaDistances
+    fun getHoldoverFrames(): IntArray = holdoverFrames
 
     data class ObstacleAnalysis(
         val type: String,       // "tembok" atau "halangan"
@@ -108,6 +113,7 @@ object SpatialMappingUtils {
             val rawDist = tofData[i]
             
             val dist = if (rawDist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
+                holdoverFrames[i] = MAX_HOLDOVER
                 if (emaDistances[i] < 0f) {
                     emaDistances[i] = rawDist.toFloat()
                 } else {
@@ -115,8 +121,13 @@ object SpatialMappingUtils {
                 }
                 emaDistances[i].toInt()
             } else {
-                emaDistances[i] = -1f
-                rawDist
+                if (holdoverFrames[i] > 0) {
+                    holdoverFrames[i]--
+                    emaDistances[i].toInt()
+                } else {
+                    emaDistances[i] = -1f
+                    rawDist
+                }
             }
 
             if (dist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {

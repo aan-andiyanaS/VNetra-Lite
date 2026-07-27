@@ -437,17 +437,12 @@ class StreamActivity : AppCompatActivity() {
 
         tofCollectJob = lifecycleScope.launch(Dispatchers.Default) {
             lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-                var localSmoothed: FloatArray? = null
-                var localHoldover: IntArray?   = null
-
                 try {
                     svc.tofFlow.collect { tofData ->
                         if (isDestroyed || isFinishing || isAkhiring) return@collect
                         latestTofData = tofData
                         
-                        val (smoothed, holdover) = processTofData(tofData, localSmoothed, localHoldover)
-                        localSmoothed = smoothed
-                        localHoldover = holdover
+                        processTofData(tofData)
 
                         pingHardware = 15L
                         val wsPing = svc.pingWebsocketFlow.value
@@ -462,20 +457,9 @@ class StreamActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Memproses data ToF mentah, melakukan penghalusan (smoothing), dan mengevaluasi hambatan.
-     * @param tofData Data mentah dari sensor ToF.
-     * @param prevSmoothed Data halus dari frame sebelumnya.
-     * @param prevHoldover Data penahan frame sebelumnya.
-     * @return Pair berisi array data yang sudah dihaluskan dan array holdover terbaru.
-     */
     private suspend fun processTofData(
-        tofData: IntArray,
-        prevSmoothed: FloatArray?,
-        prevHoldover: IntArray?
-    ): Pair<FloatArray, IntArray> {
-
-
+        tofData: IntArray
+    ) {
         if (cachedTofGridSize == 0 || tofData.size != cachedTofGridSize) {
             withContext(Dispatchers.Main) {
                 if (::tofGridRenderer.isInitialized) {
@@ -487,38 +471,20 @@ class StreamActivity : AppCompatActivity() {
                     }
                 }
             }
-
-            if (cachedTofGridSize == 0) return Pair(FloatArray(0), IntArray(0))
+            if (cachedTofGridSize == 0) return
         }
 
-        val localSmoothed = if (prevSmoothed == null || prevSmoothed.size != tofData.size) FloatArray(tofData.size) { i -> tofData[i].toFloat() } else prevSmoothed
-        val localHoldover = if (prevHoldover == null || prevHoldover.size != tofData.size) IntArray(tofData.size) { HOLDOVER_FRAMES } else prevHoldover
-
-        val alpha = 0.3f
-
+        val localSmoothed = com.airi.vnetra.util.SpatialMappingUtils.getSmoothedDistances()
+        val localHoldover = com.airi.vnetra.util.SpatialMappingUtils.getHoldoverFrames()
         withContext(Dispatchers.Main) {
             if (!isDestroyed && !isFinishing && !isAkhiring && ::tofGridRenderer.isInitialized) {
                 tofGridRenderer.updateGrid(
                     tofData = tofData,
-                                        smoothed = localSmoothed,
-                    holdover = localHoldover,
-                    alpha = alpha
+                    smoothed = localSmoothed,
+                    holdover = localHoldover
                 )
             }
         }
-
-
-        evaluateObstacles(tofData)
-        return Pair(localSmoothed, localHoldover)
-    }
-
-    /**
-     * Mengevaluasi data hambatan berdasarkan jarak ToF dan orientasi IMU.
-     * @param tofData Data jarak dari sensor ToF.
-     */
-    private fun evaluateObstacles(tofData: IntArray) {
-        // Logika evaluasi (TTS dan Navigasi) telah dipindahkan ke StreamService
-        // untuk mendukung mode Latar Belakang (Pocket Mode).
     }
 
 
