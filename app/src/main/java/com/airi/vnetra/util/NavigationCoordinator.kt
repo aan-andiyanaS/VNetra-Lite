@@ -26,7 +26,7 @@ class NavigationCoordinator {
         val aLinMag   = imuData?.getOrElse(5) { 0f } ?: 0f
 
         val isHeadRotatingLocal = abs(pitchRate) > 45f || abs(yawRate) > 45f || abs(rollRate) > 45f
-        isStationary = (aLinMag <= 0.02f) && !isHeadRotatingLocal
+        isStationary = (movingForwardConsecutiveFrames == 0) && !isHeadRotatingLocal
         
         val isAccelerating = (aLinMag > 1.0f) && !isHeadRotatingLocal
         if (isAccelerating) {

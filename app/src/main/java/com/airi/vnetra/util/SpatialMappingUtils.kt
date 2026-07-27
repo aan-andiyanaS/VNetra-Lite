@@ -24,7 +24,7 @@ object SpatialMappingUtils {
     data class ObstacleAnalysis(
         val type: String,       // "tembok" atau "halangan"
         val clockDirection: Int, // Arah jam (10, 11, 12, 1, 2)
-        val averageDistance: Int // Jarak rata-rata (mm)
+        val nearestDistance: Int // Jarak terdekat absolut (mm)
     )
 
     /** Mengonversi indeks kolom ToF (0..7) ke arah jam referensi spasial (10, 11, 12, 1, 2). */
@@ -48,27 +48,61 @@ object SpatialMappingUtils {
     }
 
     /**
-     * Menganalisis grid ToF (64 elemen) untuk mencari "tembok" di tepi atau "halangan" berkelompok.
+     * Menganalisis grid ToF (64 elemen) secara terpusat (Centroid Massa).
+     * Jika rintangan membentang vertikal >= 4 baris, diklasifikasikan sebagai "tembok".
+     * Arah jam ditentukan oleh pusat massa, dan jarak diambil dari titik terdekat.
      */
-    fun analyzeTerrain(tofData: IntArray, thetaDeg: Float): ObstacleAnalysis? {
+    fun analyzeTerrain(tofData: IntArray): ObstacleAnalysis? {
         if (tofData.size != 64) return null
 
-        val closeCells = extractCloseCells(tofData, thetaDeg)
+        val closeCells = extractCloseCells(tofData)
         if (closeCells.isEmpty()) return null
 
-        val leftWallAnalysis = analyzeWallOnSide(closeCells, isLeftSide = true)
-        if (leftWallAnalysis != null) return leftWallAnalysis
+        // 1. Cari titik yang paling mengancam (jarak terdekat absolut)
+        val nearestDist = closeCells.minOf { it.dist }
 
-        val rightWallAnalysis = analyzeWallOnSide(closeCells, isLeftSide = false)
-        if (rightWallAnalysis != null) return rightWallAnalysis
+        // 2. Isolasi area bahaya (toleransi 300mm) untuk memisahkan dari background
+        val dangerCells = closeCells.filter { it.dist <= nearestDist + 300 }
 
-        // Jika bukan tembok tepi, anggap sebagai objek (blob)
-        return analyzeAsObject(closeCells)
+        // 3. Syarat tembok: area bahaya membentang secara vertikal minimal 4 baris
+        val distinctRows = dangerCells.map { it.row }.distinct()
+        val isWall = distinctRows.size >= 4
+        val type = if (isWall) "tembok" else "halangan"
+
+        // 4. Buat histogram jumlah sel per kolom dari area bahaya
+        val colCounts = IntArray(8)
+        for (cell in dangerCells) {
+            colCounts[cell.col]++
+        }
+
+        // 5. Cari kolom dengan kepadatan tertinggi (jika seri, pilih yang paling dekat dengan tengah 3.5)
+        var bestCol = 3
+        var maxCount = -1
+        for (c in 0..7) {
+            val count = colCounts[c]
+            if (count > maxCount) {
+                maxCount = count
+                bestCol = c
+            } else if (count == maxCount && count > 0) {
+                val distCurrent = kotlin.math.abs(c - 3.5)
+                val distBest = kotlin.math.abs(bestCol - 3.5)
+                if (distCurrent < distBest) {
+                    bestCol = c
+                }
+            }
+        }
+        val clockDir = getColumnClockDirection(bestCol)
+
+        return ObstacleAnalysis(
+            type = type,
+            clockDirection = clockDir,
+            nearestDistance = nearestDist
+        )
     }
 
     private data class Cell(val row: Int, val col: Int, val dist: Int)
 
-    private fun extractCloseCells(tofData: IntArray, thetaDeg: Float): List<Cell> {
+    private fun extractCloseCells(tofData: IntArray): List<Cell> {
         val cells = mutableListOf<Cell>()
         for (i in 0..63) {
             val rawDist = tofData[i]
@@ -90,49 +124,5 @@ object SpatialMappingUtils {
             }
         }
         return cells
-    }
-
-    private fun analyzeWallOnSide(closeCells: List<Cell>, isLeftSide: Boolean): ObstacleAnalysis? {
-        // Tentukan batasan kolom untuk tepi
-        val edgeCols = if (isLeftSide) 0..2 else 5..7
-        
-        // Saring sel yang berada di area tepi
-        val edgeCells = closeCells.filter { it.col in edgeCols }
-        if (edgeCells.isEmpty()) return null
-
-        // Syarat tembok: membentang secara vertikal minimal 4 baris di sisi ini
-        val distinctRows = edgeCells.map { it.row }.distinct()
-        if (distinctRows.size < 4) return null
-
-        // Tentukan kolom yang paling mengarah ke tengah user (innermost column)
-        val innermostCol = if (isLeftSide) {
-            edgeCells.maxOf { it.col }
-        } else {
-            edgeCells.minOf { it.col }
-        }
-
-        val avgDist = edgeCells.map { it.dist }.average().toInt()
-        val clockDir = getColumnClockDirection(innermostCol)
-
-        return ObstacleAnalysis(
-            type = "tembok",
-            clockDirection = clockDir,
-            averageDistance = avgDist
-        )
-    }
-
-    private fun analyzeAsObject(closeCells: List<Cell>): ObstacleAnalysis {
-        // Hitung centroid (titik pusat massa) berdasarkan rata-rata kolom, lalu bulatkan ke terdekat
-        val sumCol = closeCells.sumOf { it.col }
-        val centerCol = (sumCol.toFloat() / closeCells.size).roundToInt()
-        
-        val avgDist = closeCells.map { it.dist }.average().toInt()
-        val clockDir = getColumnClockDirection(centerCol)
-
-        return ObstacleAnalysis(
-            type = "halangan",
-            clockDirection = clockDir,
-            averageDistance = avgDist
-        )
     }
 }

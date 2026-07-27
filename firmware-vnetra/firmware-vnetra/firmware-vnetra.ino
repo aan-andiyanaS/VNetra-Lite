@@ -1,38 +1,33 @@
 /*
- * ESP32-S3 CAM — BLE WiFi Provisioning + WebSocket Camera Stream
- * Phase 4: Unified Firmware
+ * VNetra-Lite Firmware (ESP32-S3)
+ * Fitur: BLE WiFi Provisioning + Sensor Stream (IMU & ToF) via WebSocket
  *
- * Alur:
- *  Boot → Cek flash credentials
- *   ├─ Ada → Auto-connect WiFi → Start WebSocket camera server
- *   └─ Tidak ada → BLE provisioning
- *       └─ Android scan WiFi via BLE → pilih SSID → kirim password
- *           └─ ESP32 connect WiFi → kirim "IP:x.x.x.x" via BLE → BLE off
- *               └─ Start WebSocket camera server
+ * Alur Kerja:
+ *  Boot → Cek kredensial WiFi di flash memory
+ *   ├─ Ada → Auto-connect WiFi → Mulai WebSocket server untuk stream sensor
+ *   └─ Tidak ada → Masuk mode BLE provisioning
+ *       └─ Aplikasi Android scan BLE → Pilih SSID & kirim password
+ *           └─ ESP32 connect WiFi → Kirim "IP:x.x.x.x" via BLE → Matikan BLE
+ *               └─ Mulai WebSocket server untuk stream sensor
  *
- * Reset WiFi Credentials:
+ * Reset Kredensial WiFi:
  *   Tahan tombol BOOT (GPIO 0) selama 5 detik.
- *   Indikator LED selama tahan:
- *     0–1.6 s  → Orange  (phase 1/3)
- *     1.6–3.3 s → Kuning  (phase 2/3)
- *     3.3–5 s  → Merah   (phase 3/3)
- *   Setelah 5 s: 6x blink putih cepat → Magenta (sedang reset)
- *   Selesai   → LED biru berkedip (BLE advertising ulang)
+ *   Indikator LED:
+ *     0–1.6 s   → Orange
+ *     1.6–3.3 s → Kuning
+ *     3.3–5 s   → Merah
+ *     > 5 s     → Reset (LED berkedip, masuk mode BLE)
  *
- * WebSocket Protocol (binary frame):
- *   [0]     : frame type  (0x01 = JPEG, 0x03 = heartbeat)
- *   [1..8]  : timestamp_us little-endian (uint64_t)
- *   [9..]   : JPEG payload
+ * Endpoint Data:
+ *   ws://[IP]/ws — WebSocket binary stream (IMU + ToF data)
  *
- * Android endpoint:
- *   ws://[IP]/ws  — WebSocket binary stream
+ * Library yang Dibutuhkan:
+ *   - ESPAsyncWebServer
+ *   - AsyncTCP
+ *   - Adafruit MPU6050
+ *   - SparkFun VL53L5CX
  *
- * Libraries (install via Arduino IDE Library Manager):
- *   - ESPAsyncWebServer by lacamera  (atau me-no-dev)
- *   - AsyncTCP by dvarrel            (atau me-no-dev)
- *   - Adafruit NeoPixel
- *
- * Arduino IDE Settings:
+ * Pengaturan Arduino IDE:
  *   Board        : ESP32S3 Dev Module
  *   PSRAM        : OPI PSRAM
  *   Partition    : Huge APP (3MB No OTA/1MB SPIFFS)

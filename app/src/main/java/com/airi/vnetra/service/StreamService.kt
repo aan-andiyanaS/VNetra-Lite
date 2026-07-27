@@ -716,6 +716,9 @@ class StreamService : Service() {
 
     private var latestImuSnap: FloatArray? = null
     
+    private var lastHeadTurnTime = 0L
+    private var wasAlertActive = false
+    
     private fun getSafeImuData(): FloatArray? {
         // Implement simple cache from _imuFlow or just use latest
         return latestImuSnap
@@ -723,8 +726,6 @@ class StreamService : Service() {
 
     private fun evaluateObstacles(tofData: IntArray) {
         val imuSnap = latestImuSnap
-        val rawTheta = imuSnap?.getOrElse(0) { 0f } ?: 0f
-        val thetaDeg = rawTheta - 20f
 
         navigationCoordinator.updateMovementState(imuSnap)
         val isMovingForward = navigationCoordinator.movingForwardConsecutiveFrames >= 3
@@ -733,17 +734,20 @@ class StreamService : Service() {
         val isHeadRotating = navigationCoordinator.isHeadRotating(imuSnap, 15f)
         val isStationary = navigationCoordinator.isStationary
 
+        if (navigationCoordinator.isHeadRotating(imuSnap, 30f)) {
+            lastHeadTurnTime = System.currentTimeMillis()
+        }
+
         if (isMovingForward && ::ttsAlertManager.isInitialized && ttsAlertManager.isMuted) {
             ttsAlertManager.isMuted = false
             ttsAlertManager.speakForce("Pergerakan terdeteksi, suara diaktifkan kembali")
         }
 
         if (::ttsAlertManager.isInitialized) {
-            val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData, thetaDeg)
+            val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData)
             if (terrainAnalysis != null) {
                 val obstacleAlert = ttsAlertManager.process(
-                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
-                    dObj = terrainAnalysis.averageDistance,
+                    dObj = terrainAnalysis.nearestDistance,
                     clockDirection = terrainAnalysis.clockDirection,
                     objectLabel = terrainAnalysis.type,
                     isMovingForward = isMovingForward,
@@ -755,7 +759,6 @@ class StreamService : Service() {
                 }
             } else {
                 ttsAlertManager.process(
-                    trackingId = SpatialMappingUtils.WALL_TRACKING_ID,
                     dObj = 2000,
                     clockDirection = 12,
                     objectLabel = "tembok",
@@ -763,6 +766,23 @@ class StreamService : Service() {
                     isStationary = isStationary,
                     imuData = imuSnap
                 )
+            }
+            
+            // Global Clear Path Logic
+            val hasAlerts = ttsAlertManager.hasActiveAlerts()
+            if (hasAlerts) {
+                wasAlertActive = true
+            } else if (wasAlertActive) {
+                val isStableNow = !navigationCoordinator.isHeadRotating(imuSnap, 45f)
+                
+                if (isStableNow) {
+                    val now = System.currentTimeMillis()
+                    // Jika tidak ada alert lagi, posisi stabil, dan baru saja scanning (dalam 3 detik)
+                    if (now - lastHeadTurnTime < 3000L) {
+                        ttsAlertManager.speak("Jalan di depan kosong")
+                    }
+                    wasAlertActive = false 
+                }
             }
         }
     }

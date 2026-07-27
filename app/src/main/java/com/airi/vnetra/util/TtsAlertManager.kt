@@ -37,19 +37,20 @@ class TtsAlertManager(private val context: Context) {
         const val D_RESET        = D_W0 + EPS_NOISE
     }
 
-    private val alertFlags = ConcurrentHashMap<Int, Boolean>()
+    private var alertFlag: Boolean = false
+    private var lastSeenTime: Long = 0L
+    private var lastSpokenTime: Long = 0L
 
-    private val lastSeenTime = ConcurrentHashMap<Int, Long>()
-
-    private val lastSpokenTime = ConcurrentHashMap<Int, Long>()
-
-    private val dObjPrev = ConcurrentHashMap<Int, Int>()
-    private val tsEspPrev = ConcurrentHashMap<Int, Float>()
-    private val vRawHistory = ConcurrentHashMap<Int, FloatArray>()
-    private val lastCalculatedT = ConcurrentHashMap<Int, Int>()
+    private var dObjPrev: Int? = null
+    private var tsEspPrev: Float? = null
+    private val vRawHistory = FloatArray(3)
+    private var lastCalculatedT: Int = D_W0
 
     /** Menghitung ambang batas peringatan adaptif untuk deteksi jarak per-objek. */
-    fun getAdaptiveThreshold(trackingId: Int): Int = lastCalculatedT[trackingId] ?: D_W0
+    fun getAdaptiveThreshold(): Int = lastCalculatedT
+
+    /** Mengecek apakah masih ada peringatan aktif untuk objek apa pun. */
+    fun hasActiveAlerts(): Boolean = alertFlag
 
     private var tts: TextToSpeech? = null
     private val ttsReady = AtomicBoolean(false)
@@ -133,7 +134,6 @@ class TtsAlertManager(private val context: Context) {
 
     /** Memproses data/input terbaru untuk menjalankan pipeline utama. */
     fun process(
-        trackingId: Int,
         dObj: Int,
         clockDirection: Int,
         objectLabel: String = "rintangan",
@@ -141,7 +141,7 @@ class TtsAlertManager(private val context: Context) {
         isStationary: Boolean = false,
         imuData: FloatArray? = null
     ): String? {
-        val alreadyAlerted = alertFlags[trackingId] ?: false
+        val alreadyAlerted = alertFlag
         val now = System.currentTimeMillis()
 
         var T = D_W0
@@ -151,8 +151,8 @@ class TtsAlertManager(private val context: Context) {
             val vHeadBase = imuData[7]
             val isConverged = imuData[8] > 0.5f
             if (isConverged) {
-                val dPrev = dObjPrev[trackingId]
-                val tsPrev = tsEspPrev[trackingId]
+                val dPrev = dObjPrev
+                val tsPrev = tsEspPrev
                 if (dPrev != null && tsPrev != null && tsEsp != tsPrev) {
 
                     var dt = (tsEsp - tsPrev) / 1000f
@@ -166,13 +166,12 @@ class TtsAlertManager(private val context: Context) {
                     if (vRaw < 0f) vRaw = 0f
 
                     val aLin = imuData[5]
-                    val isPavingObj = objectLabel.startsWith("paving")
-                    val isStaticObject = trackingId == SpatialMappingUtils.WALL_TRACKING_ID || isPavingObj
+                    val isStaticObject = objectLabel == "tembok"
                     if (isStaticObject && aLin < 2.94f) {
                         vRaw = 0f
                     }
 
-                    val history = vRawHistory.getOrPut(trackingId) { FloatArray(3) }
+                    val history = vRawHistory
                     history[2] = history[1]
                     history[1] = history[0]
                     history[0] = vRaw
@@ -185,21 +184,19 @@ class TtsAlertManager(private val context: Context) {
                     val momentumBuffer = imuData[5] * 200f
                     T = (D_W0 + (vAvg * tR) + momentumBuffer).toInt()
                     if (T > 4000) T = 4000
-                    Log.v(TAG, "Formula G [id=$trackingId]: dt=${String.format("%.3f", dt)} vRaw=${String.format("%.1f", vRaw)} vAvg=${String.format("%.1f", vAvg)} T=$T")
+                    Log.v(TAG, "Formula G: dt=${String.format("%.3f", dt)} vRaw=${String.format("%.1f", vRaw)} vAvg=${String.format("%.1f", vAvg)} T=$T")
                 }
 
-                dObjPrev[trackingId] = dObj
-                tsEspPrev[trackingId] = tsEsp
+                dObjPrev = dObj
+                tsEspPrev = tsEsp
             } else {
 
-                Log.v(TAG, "Formula G [id=$trackingId]: Mahony warming up, T=$D_W0")
+                Log.v(TAG, "Formula G: Mahony warming up, T=$D_W0")
             }
         }
-        lastCalculatedT[trackingId] = T
+        lastCalculatedT = T
 
-        val isPaving = objectLabel.startsWith("paving")
-
-        val finalLabel = if (!isPaving && vAvg > 500f) "$objectLabel mendekat" else objectLabel
+        val finalLabel = if (vAvg > 500f) "$objectLabel mendekat" else objectLabel
         val dirText  = SpatialMappingUtils.clockDirectionToTts(clockDirection)
 
         val distText = when {
@@ -208,11 +205,7 @@ class TtsAlertManager(private val context: Context) {
             else -> "jarak jauh"
         }
 
-        val textToSpeak = if (isPaving && dObj < 500) {
-            "$finalLabel, $dirText"
-        } else {
-            "$finalLabel, $distText, $dirText"
-        }
+        val textToSpeak = "$finalLabel, $distText, $dirText"
 
         return when {
             dObj < T && !alreadyAlerted -> {
@@ -226,64 +219,42 @@ class TtsAlertManager(private val context: Context) {
                 if (isHeadRotatingNow) return null
 
                 val pitchAngle = imuData?.getOrElse(0) { 0f } ?: 0f
-                val isStaticObst = trackingId == SpatialMappingUtils.WALL_TRACKING_ID
+                val isStaticObst = objectLabel == "tembok"
                 if (isStaticObst && pitchAngle > 20f) return null
 
-                val lastSpokenMs = lastSpokenTime[trackingId] ?: 0L
+                val lastSpokenMs = lastSpokenTime
                 if (now - lastSpokenMs < 3000L) return null
 
                 if (isMuted) return null
 
-                val isStaticObstacle = trackingId == SpatialMappingUtils.WALL_TRACKING_ID
-                if (isStaticObstacle && !isMovingForward) return null
-
-                alertFlags[trackingId] = true
-                lastSeenTime[trackingId] = now
-                lastSpokenTime[trackingId] = now
-                Log.d(TAG, "One-shot triggered: id=$trackingId d=${dObj}mm dir=$clockDirection")
+                alertFlag = true
+                lastSeenTime = now
+                lastSpokenTime = now
+                Log.d(TAG, "One-shot triggered: d=${dObj}mm dir=$clockDirection")
                 textToSpeak
             }
             dObj < T && alreadyAlerted -> {
+                lastSeenTime = now
+                val lastSpoken = lastSpokenTime
 
-                lastSeenTime[trackingId] = now
-                val lastSpoken = lastSpokenTime[trackingId] ?: 0L
-
-                val deltaD = kotlin.math.abs((dObjPrev[trackingId] ?: dObj) - dObj)
-                var isMoving = deltaD > 30
-
-                if (!isMovingForward) {
-                    isMoving = false
-                }
-
-                if (isMoving && (now - lastSpoken > 2000L)) {
-                    alertFlags[trackingId] = false
-                    Log.d(TAG, "Formula H Reset: Objek $trackingId bergerak (delta=$deltaD)")
-                    return null
-                }
-                
-                if (isStationary && isMoving && deltaD > 30) {
-                    if (now - lastSpoken > 4000L) {
-                        lastSpokenTime[trackingId] = now
-                        Log.d(TAG, "Stationary Approaching Object Alert: id=$trackingId")
-                        return textToSpeak
-                    }
-                }
-                val isWall = trackingId == SpatialMappingUtils.WALL_TRACKING_ID
-                if (isWall && isMovingForward) {
-                    if (now - lastSpoken > 1000L) {
-                        lastSpokenTime[trackingId] = now
-                        Log.d(TAG, "Wall Spam (Moving Forward): id=$trackingId")
+                // 1. User bergerak maju: Selalu peringatkan ulang setiap 2.5 detik (termasuk update jarak)
+                if (isMovingForward) {
+                    if (now - lastSpoken > 2500L) {
+                        lastSpokenTime = now
+                        Log.d(TAG, "Moving Alert Update")
                         return textToSpeak
                     }
                 }
 
-                if (isPaving && !isMovingForward) {
-                    if (now - lastSpoken > 6000L) {
-                        lastSpokenTime[trackingId] = now
-                        Log.d(TAG, "Stationary Paving Reminder: id=$trackingId")
+                // 2. User diam (stationary), tetapi ada objek dinamis mendekat dengan cepat
+                if (isStationary && vAvg > 200f) {
+                    if (now - lastSpoken > 3000L) {
+                        lastSpokenTime = now
+                        Log.d(TAG, "Stationary Approaching Object Alert (vAvg=$vAvg)")
                         return textToSpeak
                     }
                 }
+
                 null
             }
             dObj > D_RESET && alreadyAlerted -> {
@@ -296,11 +267,11 @@ class TtsAlertManager(private val context: Context) {
                     kotlin.math.abs(rollRate) > 45f
                 if (!isHeadRotatingNow) {
 
-                    val isStaticObstacle = trackingId == SpatialMappingUtils.WALL_TRACKING_ID
+                    val isStaticObstacle = objectLabel == "tembok"
                     val shouldReset = !isStaticObstacle || isMovingForward
                     if (shouldReset) {
-                        alertFlags[trackingId] = false
-                        Log.d(TAG, "Flag reset (D_RESET): id=$trackingId d=${dObj}mm moving=$isMovingForward")
+                        alertFlag = false
+                        Log.d(TAG, "Flag reset (D_RESET): d=${dObj}mm moving=$isMovingForward")
                     }
                 }
                 null
@@ -330,10 +301,10 @@ class TtsAlertManager(private val context: Context) {
 
     /** Mereset seluruh memori internal (flags) dari peringatan jarak dan objek. */
     fun resetAllFlags() {
-        alertFlags.clear()
-        lastSeenTime.clear()
-        lastSpokenTime.clear()
-        Log.d(TAG, "Semua flag one-shot di-reset (${alertFlags.size} entries)")
+        alertFlag = false
+        lastSeenTime = 0L
+        lastSpokenTime = 0L
+        Log.d(TAG, "Semua flag one-shot di-reset")
     }
 
     /** Memerintahkan TTS untuk segera menghentikan seluruh ucapan yang sedang berlangsung. */
@@ -350,106 +321,10 @@ class TtsAlertManager(private val context: Context) {
         tts?.shutdown()
         tts = null
         ttsReady.set(false)
-        alertFlags.clear()
-        lastSeenTime.clear()
-        lastSpokenTime.clear()
+        alertFlag = false
+        lastSeenTime = 0L
+        lastSpokenTime = 0L
         Log.d(TAG, "TTS engine shutdown")
     }
 
-    enum class NavState {
-        PATH_CLEAR, WALL_WARNING
-    }
-
-    inner class SmartNavigationTts {
-
-        private var currentState = NavState.PATH_CLEAR
-        private var lastWarningTime = 0L
-        private var lastClearTime = System.currentTimeMillis()
-        private var hasGivenSecondClearWarning = true
-        private var clearCandidateTime = 0L
-        private var dangerCandidateTime = 0L
-
-        /** Mengevaluasi perubahan pada MPU6050 untuk memicu atau meredam peringatan. */
-        fun processNavigationState(
-            isDanger: Boolean,
-            isMovingForward: Boolean,
-            isTurning: Boolean,
-            isStationary: Boolean = false,
-            isHeadRotating: Boolean = false,
-            clockDirection: Int = 12
-        ) {
-            val now = System.currentTimeMillis()
-
-            if (isDanger) {
-                clearCandidateTime = 0L
-
-                if (currentState == NavState.PATH_CLEAR) {
-                    if (isHeadRotating || isStationary) return
-                    
-                    if (dangerCandidateTime == 0L) {
-                        dangerCandidateTime = now
-                    } else if (now - dangerCandidateTime > 300L) {
-                        currentState = NavState.WALL_WARNING
-                        lastWarningTime = now
-                        if (!isTurning) {
-                            val dirStr = SpatialMappingUtils.clockDirectionToTts(clockDirection)
-                            if (isMovingForward) {
-                                speak("Awas, tembok $dirStr")
-                            } else if (!isStationary) {
-                                speak("Awas, tembok $dirStr")
-                            }
-                        }
-                        dangerCandidateTime = 0L
-                    }
-                } else {
-                    dangerCandidateTime = 0L
-                    if (isMovingForward && !isTurning) {
-                        if (now - lastWarningTime > 2000L) {
-                            speak("Awas, masih ada tembok")
-                            lastWarningTime = now
-                        }
-                    }
-                    // Jika isStationary, HANYA SATU KALI, tidak diulang
-                }
-            } else {
-                dangerCandidateTime = 0L
-                if (isHeadRotating) return
-                if (currentState == NavState.WALL_WARNING) {
-                    if (clearCandidateTime == 0L) {
-                        clearCandidateTime = now
-                    } else if (now - clearCandidateTime > 500L) {
-                        currentState = NavState.PATH_CLEAR
-                        lastClearTime = now
-                        hasGivenSecondClearWarning = false
-                        clearCandidateTime = 0L
-                        if (isMovingForward) {
-                            speak("Jalan di depan kosong")
-                        }
-                    }
-                } else {
-                    clearCandidateTime = 0L
-                    if (!isMovingForward) {
-                        if (!hasGivenSecondClearWarning && now - lastClearTime > 6000L) {
-                            // Diam, jangan berisik
-                            hasGivenSecondClearWarning = true
-                        }
-                    } else {
-                        lastClearTime = now
-                        hasGivenSecondClearWarning = false
-                    }
-                }
-            }
-        }
-        /** Mengembalikan seluruh state komponen ke kondisi awal (default). */
-        fun resetState() {
-            currentState = NavState.PATH_CLEAR
-            lastWarningTime = 0L
-            lastClearTime = System.currentTimeMillis()
-            hasGivenSecondClearWarning = true
-            clearCandidateTime = 0L
-            dangerCandidateTime = 0L
-        }
-    }
-
-    val smartNavigation = SmartNavigationTts()
 }
