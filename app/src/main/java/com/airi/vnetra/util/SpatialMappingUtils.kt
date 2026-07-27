@@ -1,5 +1,7 @@
 package com.airi.vnetra.util
 
+import kotlin.math.roundToInt
+
 /**
  * SpatialMappingUtils
  *
@@ -102,15 +104,15 @@ object SpatialMappingUtils {
         val distinctRows = edgeCells.map { it.row }.distinct()
         if (distinctRows.size < 4) return null
 
-        // Tentukan kolom terluar sebagai referensi arah
-        val outermostCol = if (isLeftSide) {
-            edgeCells.minOf { it.col }
-        } else {
+        // Tentukan kolom yang paling mengarah ke tengah user (innermost column)
+        val innermostCol = if (isLeftSide) {
             edgeCells.maxOf { it.col }
+        } else {
+            edgeCells.minOf { it.col }
         }
 
         val avgDist = edgeCells.map { it.dist }.average().toInt()
-        val clockDir = getColumnClockDirection(outermostCol)
+        val clockDir = getColumnClockDirection(innermostCol)
 
         return ObstacleAnalysis(
             type = "tembok",
@@ -120,9 +122,9 @@ object SpatialMappingUtils {
     }
 
     private fun analyzeAsObject(closeCells: List<Cell>): ObstacleAnalysis {
-        // Hitung centroid (titik pusat) berdasarkan rata-rata kolom
+        // Hitung centroid (titik pusat massa) berdasarkan rata-rata kolom, lalu bulatkan ke terdekat
         val sumCol = closeCells.sumOf { it.col }
-        val centerCol = (sumCol.toFloat() / closeCells.size).toInt()
+        val centerCol = (sumCol.toFloat() / closeCells.size).roundToInt()
         
         val avgDist = closeCells.map { it.dist }.average().toInt()
         val clockDir = getColumnClockDirection(centerCol)

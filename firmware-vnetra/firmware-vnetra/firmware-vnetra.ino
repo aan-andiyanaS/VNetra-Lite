@@ -808,8 +808,8 @@ void IMU_Task(void *pvParameters) {
     // ── Dynamic Gyro Auto-Reset ──
     static uint32_t standstill_ms = 0;
     float accel_mag = sqrt(ax*ax + ay*ay + az*az);
-    // Cek diam: akselerasi dekat 1G (9.81) dan gyro dekat 0
-    if (abs(accel_mag - g_const) < 0.3f && abs(wx) < 0.035f && abs(wy) < 0.035f && abs(wz) < 0.035f) {
+    // Cek diam: akselerasi dekat 1G (9.81) dan gyro di bawah 0.15 rad/s (sekitar 8.5 deg/s)
+    if (abs(accel_mag - g_const) < 0.3f && abs(wx) < 0.15f && abs(wy) < 0.15f && abs(wz) < 0.15f) {
         standstill_ms += 5; // dt = 5ms
         if (standstill_ms >= 3000) {
             gyro_bias_x = wx;

@@ -36,6 +36,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.airi.vnetra.databinding.ActivityStreamBinding
 import com.airi.vnetra.service.StreamService
 import com.airi.vnetra.util.TofDepthEstimator
@@ -97,126 +98,7 @@ class StreamActivity : AppCompatActivity() {
 
     private var latencyMonitorJob: Job? = null
 
-    /**
-     * LatencyLogger
-     *
-     * Mencatat seluruh nilai latensi ke Logcat dengan tag "LAT" setiap [LOG_INTERVAL_SEC] detik.
-     * Gunakan perintah berikut untuk mengekspor log selama pengujian skripsi:
-     *   adb logcat -s LAT > latency_sesi.txt
-     * Data yang dicatat: Sensor, Serial, Algoritma Spasial, TTS, Bluetooth, dan Total E2E.
-     */
-    private inner class LatencyLogger {
-        private val TAG = "LAT"
-        private val LOG_INTERVAL_MS = 1_000L
-
-        private var csvFile: java.io.File? = null
-        private var csvWriter: java.io.FileWriter? = null
-
-        init {
-            try {
-                val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                val filename = "VNetra_Latency_$timestamp.csv"
-                val dir = getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS)
-                if (dir != null) {
-                    if (!dir.exists()) dir.mkdirs()
-                    csvFile = java.io.File(dir, filename)
-                    csvWriter = java.io.FileWriter(csvFile, true)
-                    Log.i(TAG, "CSV Logger initialized: ${csvFile?.absolutePath}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to init CSV Logger", e)
-            }
-        }
-
-        // Ring-buffer per metrik (maks 1000 sample per sesi)
-        private val bufHardware  = ArrayDeque<Long>(1000)
-        private val bufSerial    = ArrayDeque<Long>(1000)
-        private val bufAlgo      = ArrayDeque<Long>(1000)
-        private val bufTts       = ArrayDeque<Long>(1000)
-        private val bufBt        = ArrayDeque<Long>(1000)
-        private val bufTotal     = ArrayDeque<Long>(1000)
-
-        private var lastLogTime  = 0L
-        private var sampleCount  = 0
-
-        private val sessionStart = System.currentTimeMillis()
-
-        /** Dipanggil tiap frame — menyimpan sample latensi saat ini. */
-        fun record(hw: Long, serial: Long, algo: Long, tts: Long, bt: Long, total: Long) {
-            fun ArrayDeque<Long>.push(v: Long) { if (size >= 1000) removeFirst(); addLast(v) }
-            bufHardware.push(hw)
-            bufSerial.push(serial)
-            bufAlgo.push(algo)
-            bufTts.push(tts)
-            bufBt.push(bt)
-            bufTotal.push(total)
-            sampleCount++
-
-            val now = System.currentTimeMillis()
-            if (now - lastLogTime >= LOG_INTERVAL_MS) {
-                lastLogTime = now
-                flush()
-            }
-        }
-
-        private var headerPrinted = false
-
-        /** Mencetak ringkasan statistik ke Logcat dalam format CSV. */
-        fun flush() {
-            if (bufTotal.isEmpty()) return
-            val elapsedSec = (System.currentTimeMillis() - sessionStart) / 1000
-            
-            if (!headerPrinted) {
-                val h1 = "Time(s),N,MIN_Sensor,MIN_Serial,MIN_Algo,MIN_TTS,MIN_BT,MIN_Total,AVG_Sensor,AVG_Serial,AVG_Algo,AVG_TTS,AVG_BT,AVG_Total,MAX_Sensor,MAX_Serial,MAX_Algo,MAX_TTS,MAX_BT,MAX_Total"
-                Log.i(TAG, h1)
-                
-                try {
-                    csvWriter?.append(h1)?.append("\n")
-                } catch (e: Exception) { Log.e(TAG, "Failed to write header", e) }
-                
-                headerPrinted = true
-            }
-
-            // --- Ambil Data ---
-            val senMin = getMin(bufHardware); val senAvg = getAvg(bufHardware); val senMax = getMax(bufHardware)
-            val serMin = getMin(bufSerial);   val serAvg = getAvg(bufSerial);   val serMax = getMax(bufSerial)
-            val algMin = getMin(bufAlgo);     val algAvg = getAvg(bufAlgo);     val algMax = getMax(bufAlgo)
-            val ttsMin = getMin(bufTts);      val ttsAvg = getAvg(bufTts);      val ttsMax = getMax(bufTts)
-            val btMin  = getMin(bufBt);       val btAvg  = getAvg(bufBt);       val btMax  = getMax(bufBt)
-            val totMin = getMin(bufTotal);    val totAvg = getAvg(bufTotal);    val totMax = getMax(bufTotal)
-
-            // --- Format CSV Kelompok MIN ---
-            val groupMin = "$senMin,$serMin,$algMin,$ttsMin,$btMin,$totMin"
-            // --- Format CSV Kelompok AVG ---
-            val groupAvg = "$senAvg,$serAvg,$algAvg,$ttsAvg,$btAvg,$totAvg"
-            // --- Format CSV Kelompok MAX ---
-            val groupMax = "$senMax,$serMax,$algMax,$ttsMax,$btMax,$totMax"
-
-            val row = "$elapsedSec,$sampleCount,$groupMin,$groupAvg,$groupMax"
-            // Cetak Baris Data CSV
-            Log.i(TAG, row)
-            
-            try {
-                csvWriter?.append(row)?.append("\n")
-                csvWriter?.flush()
-            } catch (e: Exception) { Log.e(TAG, "Failed to write row", e) }
-        }
-
-        private fun getMin(buf: ArrayDeque<Long>) = if (buf.isEmpty()) 0 else buf.min()
-        private fun getAvg(buf: ArrayDeque<Long>) = if (buf.isEmpty()) 0 else buf.average().toLong()
-        private fun getMax(buf: ArrayDeque<Long>) = if (buf.isEmpty()) 0 else buf.max()
-
-        /** Cetak ringkasan final saat sesi berakhir. */
-        fun finalFlush() {
-            flush()
-            try {
-                csvWriter?.close()
-                Log.i(TAG, "CSV Logger closed.")
-            } catch (e: Exception) { Log.e(TAG, "Failed to close CSV Logger", e) }
-        }
-    }
-
-    private val latencyLogger = LatencyLogger()
+    // LatencyLogger telah dipindahkan ke StreamService agar tetap merekam di latar belakang.
 
     private lateinit var tofGridRenderer: ToFGridRenderer
 
@@ -513,91 +395,73 @@ class StreamActivity : AppCompatActivity() {
         pingTts = 0
 
         latencyMonitorJob = lifecycleScope.launch {
-            while (isActive) {
-                kotlinx.coroutines.delay(200)
-                updateLatencyMonitorUi()
-            }
-        }
-
-        // Log periodik setiap 5 detik ke Logcat (tag: LAT)
-        // Sekaligus update cache hasBluetooth sekali per iterasi
-        lifecycleScope.launch(Dispatchers.Default) {
-            while (isActive) {
-                kotlinx.coroutines.delay(200)
-                hasBluetooth = run {
-                    val am = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-                    am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
-                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                    }
+            lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                while (isActive) {
+                    kotlinx.coroutines.delay(200)
+                    updateLatencyMonitorUi()
                 }
-                val btVal = if (hasBluetooth) 150L else 0L
-                val total = pingHardware + pingSerialTransmisi + pingAlgoritma + pingTts + btVal
-                latencyLogger.record(
-                    hw     = pingHardware,
-                    serial = pingSerialTransmisi,
-                    algo   = pingAlgoritma,
-                    tts    = pingTts,
-                    bt     = btVal,
-                    total  = total
-                )
             }
         }
-
-
-
 
         imuCollectJob = lifecycleScope.launch(Dispatchers.Default) {
-            try {
-                svc.imuFlow.collect { imuData ->
-                    if (isDestroyed || isFinishing || isAkhiring) return@collect
+            lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                try {
+                    svc.imuFlow.collect { imuData ->
+                        if (isDestroyed || isFinishing || isAkhiring) return@collect
 
-                    latestImuData = imuData
-                    lastImuReceivedAt = System.currentTimeMillis()
-                    withContext(Dispatchers.Main) {
-                        if (!isDestroyed && !isFinishing && !isAkhiring && imuData.size >= 6) {
-                            val converged = imuData.getOrElse(8) { 0f } > 0.5f
-                            if (converged) {
-                                binding.tvImuAccel.text = "Accel     : %6.2f m/s²".format(imuData[5])
-                            } else {
-                                binding.tvImuAccel.text = "Mahony: warming up..."
+                        latestImuData = imuData
+                        lastImuReceivedAt = System.currentTimeMillis()
+                        withContext(Dispatchers.Main) {
+                            if (!isDestroyed && !isFinishing && !isAkhiring && imuData.size >= 6) {
+                                val converged = imuData.getOrElse(8) { 0f } > 0.5f
+                                if (converged) {
+                                    binding.tvImuAccel.text = "Accel     : %6.2f m/s²".format(imuData[5])
+                                } else {
+                                    binding.tvImuAccel.text = "Mahony: warming up..."
+                                }
+                                binding.tvImuPitch.text     = "Pitch     : %5.1f°".format(imuData[0])
+                                binding.tvImuRoll.text      = "Roll      : %5.1f°".format(imuData[1])
+                                val pRate = imuData[2].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
+                                val rRate = imuData[3].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
+                                val yRate = imuData[4].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
+
+                                binding.tvImuPitchRate.text = "Pitch Rate: %5.1f°/s".format(pRate)
+                                binding.tvImuRollRate.text  = "Roll Rate : %5.1f°/s".format(rRate)
+                                binding.tvImuYaw.text       = "Yaw Rate  : %5.1f°/s".format(yRate)
                             }
-                            binding.tvImuPitch.text     = "Pitch     : %5.1f°".format(imuData[0])
-                            binding.tvImuRoll.text      = "Roll      : %5.1f°".format(imuData[1])
-                            binding.tvImuPitchRate.text = "Pitch Rate: %5.1f°/s".format(imuData[2])
-                            binding.tvImuRollRate.text  = "Roll Rate : %5.1f°/s".format(imuData[3])
-                            binding.tvImuYaw.text       = "Yaw Rate  : %5.1f°/s".format(imuData[4])
                         }
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.e("StreamActivity", "IMU collect error", e)
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("StreamActivity", "IMU collect error", e)
             }
         }
 
         tofCollectJob = lifecycleScope.launch(Dispatchers.Default) {
-            var localSmoothed: FloatArray? = null
-            var localHoldover: IntArray?   = null
+            lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                var localSmoothed: FloatArray? = null
+                var localHoldover: IntArray?   = null
 
-            try {
-                svc.tofFlow.collect { tofData ->
-                    if (isDestroyed || isFinishing || isAkhiring) return@collect
-                    latestTofData = tofData
-                    
-                    val (smoothed, holdover) = processTofData(tofData, localSmoothed, localHoldover)
-                    localSmoothed = smoothed
-                    localHoldover = holdover
+                try {
+                    svc.tofFlow.collect { tofData ->
+                        if (isDestroyed || isFinishing || isAkhiring) return@collect
+                        latestTofData = tofData
+                        
+                        val (smoothed, holdover) = processTofData(tofData, localSmoothed, localHoldover)
+                        localSmoothed = smoothed
+                        localHoldover = holdover
 
-                    pingHardware = 15L
-                    val wsPing = svc.pingWebsocketFlow.value
-                    pingSerialTransmisi = if (wsPing > 0) wsPing else 5L
+                        pingHardware = 15L
+                        val wsPing = svc.pingWebsocketFlow.value
+                        pingSerialTransmisi = if (wsPing > 0) wsPing else 5L
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.e("StreamActivity", "TOF collect error", e)
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("StreamActivity", "TOF collect error", e)
             }
         }
     }
@@ -674,8 +538,8 @@ class StreamActivity : AppCompatActivity() {
         if (isAkhiring) return
         isAkhiring = true
 
-        // Cetak ringkasan akhir sesi ke Logcat sebelum aplikasi ditutup
-        latencyLogger.finalFlush()
+        // Cetak ringkasan akhir sesi ke Logcat sebelum aplikasi ditutup (Dipindahkan ke StreamService)
+        // latencyLogger.finalFlush()
 
         cancelAllJobs()
 

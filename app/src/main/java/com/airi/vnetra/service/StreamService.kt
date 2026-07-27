@@ -58,6 +58,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import java.util.concurrent.TimeUnit
+import com.airi.vnetra.util.LatencyLogger
 
 class StreamService : Service() {
 
@@ -109,6 +110,7 @@ class StreamService : Service() {
 
     private lateinit var navigationCoordinator: NavigationCoordinator
     private lateinit var ttsAlertManager: TtsAlertManager
+    private lateinit var latencyLogger: LatencyLogger
 
     private var closeThreatExists = false
     private var isBlockedState = false
@@ -201,6 +203,10 @@ class StreamService : Service() {
     /** Menghentikan koneksi stream, websocket, UDP, dan membebaskan resource (WakeLock/WifiLock). */
 
     fun stopStreamAndRelease() {
+        if (::latencyLogger.isInitialized) {
+            latencyLogger.finalFlush()
+        }
+
         if (_connectionState.value == ConnectionState.CONNECTED) {
              if (::ttsAlertManager.isInitialized) {
                  ttsAlertManager.speakForce("VNetra Terputus, masuk mode standby")
@@ -342,7 +348,7 @@ class StreamService : Service() {
                                 Log.e(TAG, "WS failure: ${t.message}")
                                 activeWebSocket = null
                                 setConnectionState(ConnectionState.DISCONNECTED)
-                                if (::ttsAlertManager.isInitialized) {
+                                if (::ttsAlertManager.isInitialized && !stopped) {
                                     ttsAlertManager.speakForce("VNetra Terputus")
                                 }
                                 if (!done.isCompleted) done.complete(Unit)
@@ -360,7 +366,7 @@ class StreamService : Service() {
                             runCatching {
                                 activeWebSocket = null
                                 setConnectionState(ConnectionState.DISCONNECTED)
-                                if (::ttsAlertManager.isInitialized) {
+                                if (::ttsAlertManager.isInitialized && !stopped) {
                                     ttsAlertManager.speakForce("VNetra Terputus")
                                 }
                                 if (!done.isCompleted) done.complete(Unit)
@@ -665,11 +671,45 @@ class StreamService : Service() {
         navigationCoordinator = NavigationCoordinator()
         ttsAlertManager = TtsAlertManager(this)
         ttsAlertManager.initTts()
+        latencyLogger = LatencyLogger(this)
         
         // Start processing loop for TTS and Obstacle Detection
         serviceScope.launch {
             _tofFlow.collect { tofData ->
                 evaluateObstacles(tofData)
+            }
+        }
+
+        // Start continuous latency logging
+        serviceScope.launch {
+            while (isActive) {
+                kotlinx.coroutines.delay(200)
+                val hasBluetooth = runCatching {
+                    val am = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                    am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any {
+                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    }
+                }.getOrDefault(false)
+
+                val btVal = if (hasBluetooth) 150L else 0L
+                val wsPing = _pingWebsocketFlow.value
+                val serial = if (wsPing > 0) wsPing else 5L
+                val hw = 15L
+                val algo = 5L
+                val tts = 0L
+                val total = hw + serial + algo + tts + btVal
+
+                if (_connectionState.value == ConnectionState.CONNECTED) {
+                    latencyLogger.record(
+                        hw = hw,
+                        serial = serial,
+                        algo = algo,
+                        tts = tts,
+                        bt = btVal,
+                        total = total
+                    )
+                }
             }
         }
     }
