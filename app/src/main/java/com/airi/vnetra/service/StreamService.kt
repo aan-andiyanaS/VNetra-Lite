@@ -347,10 +347,12 @@ class StreamService : Service() {
                             runCatching {
                                 Log.e(TAG, "WS failure: ${t.message}")
                                 activeWebSocket = null
-                                setConnectionState(ConnectionState.DISCONNECTED)
-                                if (::ttsAlertManager.isInitialized && !stopped) {
-                                    ttsAlertManager.speakForce("VNetra Terputus")
+                                if (_connectionState.value == ConnectionState.CONNECTED) {
+                                    if (::ttsAlertManager.isInitialized && !stopped) {
+                                        ttsAlertManager.speakForce("VNetra Terputus")
+                                    }
                                 }
+                                setConnectionState(ConnectionState.DISCONNECTED)
                                 if (!done.isCompleted) done.complete(Unit)
                             }
                         }
@@ -365,10 +367,12 @@ class StreamService : Service() {
                             runCatching { pingJob?.cancel(); pingJob = null }
                             runCatching {
                                 activeWebSocket = null
-                                setConnectionState(ConnectionState.DISCONNECTED)
-                                if (::ttsAlertManager.isInitialized && !stopped) {
-                                    ttsAlertManager.speakForce("VNetra Terputus")
+                                if (_connectionState.value == ConnectionState.CONNECTED) {
+                                    if (::ttsAlertManager.isInitialized && !stopped) {
+                                        ttsAlertManager.speakForce("VNetra Terputus")
+                                    }
                                 }
+                                setConnectionState(ConnectionState.DISCONNECTED)
                                 if (!done.isCompleted) done.complete(Unit)
                             }
                         }
@@ -776,11 +780,7 @@ class StreamService : Service() {
                 val isStableNow = !navigationCoordinator.isHeadRotating(imuSnap, 45f)
                 
                 if (isStableNow) {
-                    val now = System.currentTimeMillis()
-                    // Jika tidak ada alert lagi, posisi stabil, dan baru saja scanning (dalam 3 detik)
-                    if (now - lastHeadTurnTime < 3000L) {
-                        ttsAlertManager.speak("Jalan di depan kosong")
-                    }
+                    ttsAlertManager.speak("Jalan di depan kosong")
                     wasAlertActive = false 
                 }
             }

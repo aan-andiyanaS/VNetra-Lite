@@ -416,9 +416,9 @@ class StreamActivity : AppCompatActivity() {
                                     binding.tvImuAccel.text = "Mahony: warming up..."
                                 }
                                 binding.tvImuPitch.text     = "Pitch     : %5.1f°".format(imuData[0])
-                                binding.tvImuRoll.text      = "Roll      : %5.1f°".format(imuData[1])
-                                val pRate = imuData[2].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
-                                val rRate = imuData[3].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
+                                binding.tvImuRoll.text      = "Dyn Accel : %5.1f".format(imuData[1])
+                                val pRate = imuData[3].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
+                                val rRate = imuData[2].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
                                 val yRate = imuData[4].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
 
                                 binding.tvImuPitchRate.text = "Pitch Rate: %5.1f°/s".format(pRate)
@@ -525,7 +525,13 @@ class StreamActivity : AppCompatActivity() {
     /** Menampilkan popup peringatan konfirmasi sebelum pengguna memutus koneksi. */
     private fun konfirmasiAkhiriProses() {
         if (isDestroyed || isFinishing || isAkhiring) return
-        moveTaskToBack(true)
+        AlertDialog.Builder(this)
+            .setTitle("Akhiri Navigasi?")
+            .setMessage("Apakah Anda ingin mematikan sensor dan keluar dari aplikasi, atau biarkan berjalan di latar belakang (Pocket Mode)?")
+            .setPositiveButton("Keluar (Mati)") { _, _ -> akhiriProses() }
+            .setNegativeButton("Latar Belakang") { _, _ -> moveTaskToBack(true) }
+            .setNeutralButton("Batal") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
 

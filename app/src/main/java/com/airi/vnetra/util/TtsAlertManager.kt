@@ -196,7 +196,9 @@ class TtsAlertManager(private val context: Context) {
         }
         lastCalculatedT = T
 
-        val finalLabel = if (vAvg > 500f) "$objectLabel mendekat" else objectLabel
+        val finalLabel = if (vAvg > 500f) {
+            if (isMovingForward) "mendekati $objectLabel" else "$objectLabel mendekat"
+        } else objectLabel
         val dirText  = SpatialMappingUtils.clockDirectionToTts(clockDirection)
 
         val distText = when {
@@ -210,8 +212,8 @@ class TtsAlertManager(private val context: Context) {
         return when {
             dObj < T && !alreadyAlerted -> {
 
-                val pitchRate = imuData?.getOrElse(2) { 0f } ?: 0f
-                val rollRate  = imuData?.getOrElse(3) { 0f } ?: 0f
+                val pitchRate = imuData?.getOrElse(3) { 0f } ?: 0f
+                val rollRate  = imuData?.getOrElse(2) { 0f } ?: 0f
                 val yawRateImu = imuData?.getOrElse(4) { 0f } ?: 0f
                 val isHeadRotatingNow = kotlin.math.abs(pitchRate) > 45f ||
                     kotlin.math.abs(yawRateImu) > 45f ||
@@ -259,20 +261,15 @@ class TtsAlertManager(private val context: Context) {
             }
             dObj > D_RESET && alreadyAlerted -> {
 
-                val pitchRate = imuData?.getOrElse(2) { 0f } ?: 0f
-                val rollRate  = imuData?.getOrElse(3) { 0f } ?: 0f
+                val pitchRate = imuData?.getOrElse(3) { 0f } ?: 0f
+                val rollRate  = imuData?.getOrElse(2) { 0f } ?: 0f
                 val yawRateImu = imuData?.getOrElse(4) { 0f } ?: 0f
                 val isHeadRotatingNow = kotlin.math.abs(pitchRate) > 45f ||
                     kotlin.math.abs(yawRateImu) > 45f ||
                     kotlin.math.abs(rollRate) > 45f
                 if (!isHeadRotatingNow) {
-
-                    val isStaticObstacle = objectLabel == "tembok"
-                    val shouldReset = !isStaticObstacle || isMovingForward
-                    if (shouldReset) {
-                        alertFlag = false
-                        Log.d(TAG, "Flag reset (D_RESET): d=${dObj}mm moving=$isMovingForward")
-                    }
+                    alertFlag = false
+                    Log.d(TAG, "Flag reset (D_RESET): d=${dObj}mm")
                 }
                 null
             }
