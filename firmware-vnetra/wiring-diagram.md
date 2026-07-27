@@ -212,7 +212,7 @@ Jalur daya dilengkapi **switch ON/OFF fisik** di antara output MT3608 dan pin 5V
 ### Jalur Daya
 
 ```
-Li-Po 3.7V → TP4056 (Charging + Proteksi) → MT3608 (Boost 3.7V → 5V) → SWITCH ON/OFF → Pin 5V ESP32 → AMS1117 (5V → 3.3V)
+Li-Po 3.7V → TP4056 (Charging + Proteksi) → SWITCH ON/OFF → MT3608 (Boost 3.7V → 5V) → Pin 5V ESP32 → AMS1117 (5V → 3.3V)
 ```
 
 ```mermaid
@@ -225,12 +225,12 @@ flowchart LR
         TP4056["TP4056<br/>+ Proteksi"]
     end
 
-    subgraph BOOST ["Boost Converter"]
-        MT3608["MT3608<br/>3.7V → 5V"]
-    end
-
     subgraph SWITCH_BOX ["Power Switch"]
         SW["Slide Switch<br/>ON / OFF"]
+    end
+
+    subgraph BOOST ["Boost Converter"]
+        MT3608["MT3608<br/>3.7V → 5V"]
     end
 
     subgraph ESP32 ["ESP32 DevKit V1"]
@@ -240,9 +240,10 @@ flowchart LR
     end
 
     LIPO -->|"B+ / B-"| TP4056
-    TP4056 -->|"OUT+ / OUT-"| MT3608
-    MT3608 -->|"5V"| SW
-    SW -->|"ON → lanjut"| PIN5V
+    TP4056 -->|"OUT+"| SW
+    SW -->|"ON → lanjut"| MT3608
+    TP4056 -->|"OUT-"| MT3608
+    MT3608 -->|"5V"| PIN5V
     PIN5V --> AMS
     AMS -->|"3.3V"| P3V3
 
@@ -253,7 +254,7 @@ flowchart LR
     class SW sw;
     class PIN5V,AMS,P3V3 mcu;
 
-    linkStyle 0,1,2,3,4,5 stroke:#f44336,stroke-width:2px;
+    linkStyle 0,1,2,3,4,5,6 stroke:#f44336,stroke-width:2px;
 ```
 
 ### Tabel Koneksi Daya
@@ -262,16 +263,16 @@ flowchart LR
 |---|---|---|---|---|---|
 | **Li-Po +** | Kabel Merah | **TP4056** | B+ | 🔴 Merah | Positif baterai |
 | **Li-Po -** | Kabel Hitam | **TP4056** | B- | ⚫ Hitam | Negatif baterai |
-| **TP4056** | OUT+ | **MT3608** | IN+ (VIN) | 🔴 Merah | Output baterai → input boost |
-| **TP4056** | OUT- | **MT3608** | IN- (GND) | ⚫ Hitam | Ground |
-| **MT3608** | OUT+ (VOUT) | **Switch** | Pin 1 | 🔴 Merah | 5V output → switch masuk |
-| **Switch** | Pin 2 | **ESP32** | VIN (5V) | 🔴 Merah | Switch keluar → board |
-| **MT3608** | OUT- (GND) | **ESP32** | GND | ⚫ Hitam | Ground bersama (bypass switch) |
+| **TP4056** | OUT+ | **Switch** | Pin 1 | 🔴 Merah | Output TP4056 → switch masuk |
+| **Switch** | Pin 2 | **MT3608** | IN+ (VIN) | 🔴 Merah | Switch keluar → input boost |
+| **TP4056** | OUT- | **MT3608** | IN- (GND) | ⚫ Hitam | Ground (bypass switch) |
+| **MT3608** | OUT+ (VOUT) | **ESP32** | VIN (5V) | 🔴 Merah | 5V output → board |
+| **MT3608** | OUT- (GND) | **ESP32** | GND | ⚫ Hitam | Ground bersama |
 
 ### Catatan Penting Daya
 
 - **MT3608 harus di-set ke 5V** terlebih dahulu. Putar trimpot sambil ukur output hingga tepat **5.0V** sebelum pasang ke board.
-- **Switch ON/OFF** dipasang di **jalur positif** antara MT3608 VOUT dan pin VIN ESP32 — ground tetap terhubung langsung (tidak diputus).
+- **Switch ON/OFF** dipasang di **jalur positif** antara output TP4056 (OUT+) dan input MT3608 (IN+). Penempatan ini sangat penting agar step-up converter benar-benar mati saat switch OFF, mencegah kebocoran arus (*quiescent current*) yang dapat merusak baterai Li-Po.
 - Gunakan **slide switch** atau **rocker switch** dengan rating arus ≥ 500mA.
 - **TP4056**: colok Micro-USB ke TP4056 untuk isi daya baterai. ESP32 bisa tetap ON saat charging jika switch dalam posisi ON.
 
@@ -386,9 +387,9 @@ flowchart TB
 
     %% Jalur Daya
     LIPO --> TP4056
-    TP4056 --> MT3608
-    MT3608 --> SW
-    SW -->|"5V (saat ON)"| AMS
+    TP4056 --> SW
+    SW -->|"3.7V (saat ON)"| MT3608
+    MT3608 -->|"5V"| AMS
     AMS -->|"3.3V"| ESP32
 
     %% Data
@@ -440,11 +441,12 @@ flowchart TB
 | 12 | **Buzzer Aktif** | - (Negatif) | GND | ⚫ Hitam | Power | Ground |
 | 13 | **Push Button Ext** | Pin 1 atau 2 | GPIO0 | 🟡 Kuning | Input | Paralel dengan BOOT button |
 | 14 | **Push Button Ext** | Pin 3 atau 4 | GND | ⚫ Hitam | Input | Ground |
-| 15 | **Slide Switch** | Pin 1 (IN) | MT3608 VOUT | 🔴 Merah | Power | Input 5V dari boost converter |
-| 16 | **Slide Switch** | Pin 2 (OUT) | ESP32 VIN | 🔴 Merah | Power | Output 5V ke board saat ON |
-| 17 | **Li-Po → TP4056** | B+ / B- | TP4056 B+/B- | 🔴/⚫ | Power | Baterai ke modul charging |
-| 18 | **TP4056 → MT3608** | OUT+ / OUT- | MT3608 VIN/GND | 🔴/⚫ | Power | Output charging ke input boost |
-| 19 | **MT3608 → ESP32** | GND | GND | ⚫ Hitam | Power | Ground bersama (bypass switch) |
+| 15 | **Li-Po → TP4056** | B+ / B- | TP4056 B+/B- | 🔴/⚫ | Power | Baterai ke modul charging |
+| 16 | **Slide Switch** | Pin 1 (IN) | TP4056 OUT+ | 🔴 Merah | Power | Input 3.7V dari charging modul |
+| 17 | **Slide Switch** | Pin 2 (OUT) | MT3608 VIN+ | 🔴 Merah | Power | Output ke boost converter saat ON |
+| 18 | **TP4056 → MT3608** | OUT- | MT3608 GND | ⚫ Hitam | Power | Ground bersama (bypass switch) |
+| 19 | **MT3608 → ESP32** | OUT+ (5V) | ESP32 VIN | 🔴 Merah | Power | Output 5V ke board ESP32 |
+| 20 | **MT3608 → ESP32** | GND | GND | ⚫ Hitam | Power | Ground bersama |
 
 ### Ringkasan Komponen
 
@@ -454,6 +456,6 @@ flowchart TB
 | 2 | MPU6050 | 5 kabel | VCC, GND, SCL, SDA, AD0 |
 | 3 | Buzzer Aktif | 2 kabel | + ke GPIO13, − ke GND |
 | 4 | Push Button 4-pin (ext) | 2 kabel | Paralel GPIO0 + GND |
-| 5 | Slide Switch | 2 kabel | Di jalur positif 5V |
+| 5 | Slide Switch | 2 kabel | Di jalur positif baterai (sebelum step-up) |
 | 6 | Li-Po + TP4056 + MT3608 | 6 kabel (antar modul) | Jalur charging dan boost |
 | | **Total kabel manual** | **~22 kabel** | |
