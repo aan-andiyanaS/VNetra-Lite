@@ -79,29 +79,12 @@ object SpatialMappingUtils {
         val isWall = distinctRows.size >= 4
         val type = if (isWall) "tembok" else "halangan"
 
-        // 4. Buat histogram jumlah sel per kolom dari area bahaya
-        val colCounts = IntArray(8)
-        for (cell in dangerCells) {
-            colCounts[cell.col]++
-        }
-
-        // 5. Cari kolom dengan kepadatan tertinggi (jika seri, pilih yang paling dekat dengan tengah 3.5)
-        var bestCol = 3
-        var maxCount = -1
-        for (c in 0..7) {
-            val count = colCounts[c]
-            if (count > maxCount) {
-                maxCount = count
-                bestCol = c
-            } else if (count == maxCount && count > 0) {
-                val distCurrent = kotlin.math.abs(c - 3.5)
-                val distBest = kotlin.math.abs(bestCol - 3.5)
-                if (distCurrent < distBest) {
-                    bestCol = c
-                }
-            }
-        }
-        val clockDir = getColumnClockDirection(bestCol)
+        // 4. Tentukan arah jam via centroid kolom (pusat massa area bahaya).
+        //    Centroid = rata-rata posisi kolom seluruh danger cells.
+        //    Lebih akurat dari histogram peak: tembok lebar → centroid di tengah,
+        //    halangan asimetris → centroid di sisi yang benar.
+        val centroidCol = dangerCells.map { it.col }.average().roundToInt().coerceIn(0, 7)
+        val clockDir = getColumnClockDirection(centroidCol)
 
         return ObstacleAnalysis(
             type = type,
