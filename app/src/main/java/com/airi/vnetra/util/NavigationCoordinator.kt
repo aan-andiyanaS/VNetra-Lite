@@ -40,6 +40,10 @@ class NavigationCoordinator {
 
     private var stationaryFrames = 0
 
+    /** True jika sensor telah diam >~3 detik (kacamata di meja / tidak dipakai). */
+    val isRestingMode: Boolean
+        get() = stationaryFrames > 45
+
     /** Helper: mengekstrak laju rotasi IMU (pitch/roll/yaw) dengan noise gate 4°/s. */
     private fun extractFilteredRates(imuData: FloatArray?): Triple<Float, Float, Float> {
         fun Float.denoised() = if (abs(this) < 4.0f) 0f else this
@@ -162,10 +166,6 @@ class NavigationCoordinator {
                     var vRaw = ((dPrev - dObj) / dt) - vHead
                     if (vRaw < 0f) vRaw = 0f
 
-                    val aLin = imuData[5]
-                    val isStaticObject = objectLabel == "tembok"
-
-
                     vRawHistory[2] = vRawHistory[1]
                     vRawHistory[1] = vRawHistory[0]
                     vRawHistory[0] = vRaw
@@ -204,7 +204,7 @@ class NavigationCoordinator {
         wasHeadRotating = isHeadRotatingNow
 
         val isStaticObst = objectLabel == "tembok"
-        val isAlertPermitted = !isHeadRotatingNow && !(isStaticObst && pitchAngle > 20f)
+        val isAlertPermitted = !isHeadRotatingNow && !isRestingMode && !(isStaticObst && pitchAngle > 20f)
 
         // 2. Evaluasi Pedometer Ruang Terbuka (Translational Shift)
         val aLin = imuData?.getOrElse(5) { 0f } ?: 0f
