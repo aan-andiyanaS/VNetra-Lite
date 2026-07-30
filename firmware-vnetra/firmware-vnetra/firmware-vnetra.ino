@@ -897,9 +897,8 @@ void IMU_Task(void *pvParameters) {
 }
 
 void TOF_Task(void *pvParameters) {
-  static float ema_dist[64] = {0};
-  static bool ema_init[64] = {false};
-  const float ema_alpha = 0.7f; // [PERBAIKAN] Dinaikkan dari 0.3 ke 0.7 agar sangat responsif (minim lag)
+    // Variabel statis EMA telah dihapus.
+
 
   for (;;) {
     bool gotData = false;
@@ -907,22 +906,8 @@ void TOF_Task(void *pvParameters) {
         gotData = myImager.isDataReady();
         if (gotData) {
             myImager.getRangingData(&measurementData);
-            for (int i = 0; i < 64; i++) {
-                int16_t raw_dist = measurementData.distance_mm[i];
-                uint8_t st = measurementData.target_status[i];
-                bool statusOk = (st == 5 || st == 6 || st == 9 || st == 10 || st == 12 || st == 13);
-                if (statusOk && raw_dist >= 30 && raw_dist <= 4000) {
-                    if (!ema_init[i]) {
-                        ema_dist[i] = raw_dist;
-                        ema_init[i] = true;
-                    } else {
-                        ema_dist[i] = ema_alpha * raw_dist + (1.0f - ema_alpha) * ema_dist[i];
-                    }
-                    measurementData.distance_mm[i] = (int16_t)ema_dist[i];
-                } else {
-                    ema_init[i] = false; // Reset jika tidak valid
-                }
-            }
+            // EMA smoothing telah dihapus dari sisi hardware (ESP32) untuk menghemat CPU.
+            // Smoothing sepenuhnya ditangani oleh aplikasi Android (SpatialMappingUtils).
         }
         xSemaphoreGive(i2c_mutex);
     }
