@@ -1,0 +1,10 @@
+# Ignore Graphify visual and cache artifacts (huge tokens)
+graphify-out/graph.html
+graphify-out/graph.json
+graphify-out/.graphify_analysis.json
+graphify-out/cache/
+
+# Ignore massive math formula documents
+docs/formula-matematis-v9.4.md
+
+# (We intentionally DO NOT ignore GRAPH_REPORT.md so AI can still read the architecture summary)

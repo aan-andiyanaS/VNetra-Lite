@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.channels.BufferOverflow
+import android.speech.tts.UtteranceProgressListener
 
 class TtsAlertManager(private val context: Context) {
 
@@ -60,6 +61,9 @@ class TtsAlertManager(private val context: Context) {
 
     private var silentAudioTrack: AudioTrack? = null
 
+    /** Callback yang akan dipicu setiap kali TTS mulai bersuara (membawa nilai latensi dalam milidetik). */
+    var onTtsLatencyMeasured: ((Long) -> Unit)? = null
+
     /** Menginisialisasi komponen mesin sintesis suara Text-to-Speech (TTS). */
     fun initTts() {
         if (ttsReady.get()) return
@@ -79,6 +83,21 @@ class TtsAlertManager(private val context: Context) {
                     Log.w(TAG, "TTS: Bahasa Indonesia tidak tersedia, fallback ke ${Locale.getDefault()}")
                 }
                 tts?.setSpeechRate(1.6f)
+                
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        val triggerTime = utteranceId?.substringAfter("vnetra_")?.toLongOrNull()
+                        if (triggerTime != null) {
+                            val latency = System.currentTimeMillis() - triggerTime
+                            // Panggil callback agar StreamService tahu latensi aslinya
+                            onTtsLatencyMeasured?.invoke(latency)
+                        }
+                    }
+                    override fun onDone(utteranceId: String?) {}
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {}
+                })
+                
                 ttsReady.set(true)
                 Log.d(TAG, "TTS engine siap")
 
@@ -140,8 +159,14 @@ class TtsAlertManager(private val context: Context) {
         vAvg: Float,
         T: Int,
         isAlertPermitted: Boolean,
-        isSameSemanticState: Boolean = false
+        isSameSemanticState: Boolean = false,
+        headRotationStopTimeMs: Long = 0L
     ): String? {
+        val POST_ROTATION_COOLDOWN_MS = 500L
+        if (System.currentTimeMillis() - headRotationStopTimeMs < POST_ROTATION_COOLDOWN_MS) {
+            return null
+        }
+
         val alreadyAlerted = alertFlag
         val now = System.currentTimeMillis()
 

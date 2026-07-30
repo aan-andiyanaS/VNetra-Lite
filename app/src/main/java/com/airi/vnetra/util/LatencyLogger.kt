@@ -33,10 +33,9 @@ class LatencyLogger(context: Context) {
         try {
             val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
             val filename = "VNetra_Latency_$timestamp.csv"
-            // Menggunakan getExternalFilesDir() — tidak memerlukan WRITE_EXTERNAL_STORAGE
-            // dan kompatibel dengan semua versi Android tanpa deprecation warning.
-            // Path: /sdcard/Android/data/com.airi.vnetra/files/Documents/VNetra_Logs/
-            val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS)
+            // Menyimpan di direktori /sdcard/Documents/VNetra_Logs/
+            // Pada Android 11+, aplikasi diizinkan membuat file di folder publik Documents tanpa izin tambahan.
+            val dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
             val appDir = java.io.File(dir, "VNetra_Logs")
             if (!appDir.exists()) appDir.mkdirs()
             csvFile = java.io.File(appDir, filename)

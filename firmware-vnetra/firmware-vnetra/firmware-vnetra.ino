@@ -50,14 +50,12 @@
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
-
 #include <SparkFun_VL53L5CX_Library.h>
 
 
 
 // ======== RGB LED — GPIO 48 (WS2812) ========
 #define LED_PIN         2
-#define BUZZER_PIN      13
 #define LED_BRIGHTNESS  50
 #define BLINK_INTERVAL  500
 
@@ -236,16 +234,6 @@ static bool     hadClientBefore     = false;    // pernah ada client (untuk trig
 // WiFi Parallel Init Task
 static volatile bool wifiInitDone   = false;  // task selesai (berhasil atau gagal)
 static volatile bool wifiInitResult = false;  // true = berhasil connect
-
-void buzzerBeep(int duration) {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(duration);
-    digitalWrite(BUZZER_PIN, LOW);
-}
-
-void buzzerOff() {
-    digitalWrite(BUZZER_PIN, LOW);
-}
 
 void setLedState(bool state) {
     if (powerSaveMode) return;
@@ -835,9 +823,13 @@ void IMU_Task(void *pvParameters) {
     static float a_lin_smooth = 0.0f;
     static float a_lin_dc_bias = 0.0f;
     
+    if (a_lin_mag_raw > 20.0f) a_lin_mag_raw = a_lin_smooth; // reject spike >20m/s²
+
     // Peningkatan Sensitivitas (Realisme Fisika): 
-    // Bobot pembacaan baru dinaikkan dari 0.1 menjadi 0.4 agar pergerakan terasa instan dan tidak lagging.
-    a_lin_smooth = (0.4f * a_lin_mag_raw) + (0.6f * a_lin_smooth);
+    // Turunkan alpha saat diam untuk stabilitas lebih baik
+    float gyro_mag = sqrt(wx_corr_deg*wx_corr_deg + wy_corr_deg*wy_corr_deg + wz_corr_deg*wz_corr_deg);
+    float ema_alpha = (gyro_mag > 10.0f) ? 0.4f : 0.15f;
+    a_lin_smooth = (ema_alpha * a_lin_mag_raw) + ((1.0f - ema_alpha) * a_lin_smooth);
     
     // Hanya tangkap bias saat relatif diam (cegah goncangan berjalan merusak titik 0)
     if (a_lin_smooth < 1.5f) {
@@ -845,7 +837,7 @@ void IMU_Task(void *pvParameters) {
     }
     
     float a_lin_dynamic = a_lin_smooth - a_lin_dc_bias;
-    if (a_lin_dynamic < 0.15f) {
+    if (a_lin_dynamic < 0.3f) {
         a_lin_dynamic = 0.0f; // Noise gate: Abaikan getaran kelistrikan saat diam
     }
     
@@ -862,7 +854,7 @@ void IMU_Task(void *pvParameters) {
 
     // ── Rate-limit UDP send ──
     static uint8_t imu_send_tick = 0;
-    if (udpClientReady && !powerSaveMode && (++imu_send_tick >= 10)) {
+    if (udpClientReady && !powerSaveMode && (++imu_send_tick >= 5)) {
       imu_send_tick = 0;
       imu_frame_count++;  // Hitung paket IMU dikirim
       
@@ -912,67 +904,13 @@ void TOF_Task(void *pvParameters) {
         xSemaphoreGive(i2c_mutex);
     }
 
-    bool isOffline = (!udpClientReady || powerSaveMode);
+    bool isOnline = (udpClientReady && !powerSaveMode);
 
-    if (gotData && isOffline) {
-        static int prevMinDist = 2000;
-        int minDist = 2000;
-        
-        for (int i = 0; i < 64; i++) {
-            int16_t dist = measurementData.distance_mm[i];
-            uint8_t st = measurementData.target_status[i];
-            bool statusOk = (st == 5 || st == 6 || st == 9 || st == 10 || st == 12 || st == 13);
-            if (statusOk && dist >= 30 && dist < minDist) {
-                minDist = dist;
-            }
-        }
-        
-        if (global_a_lin_mag <= 0.05f) {
-            // Stationary Mode
-            if (minDist < 2000) {
-                if (minDist < prevMinDist - 80) { // Hysteresis didekatkan (lebih tahan noise)
-                    static unsigned long lastStationaryWarning = 0;
-                    if (millis() - lastStationaryWarning > 4000) {
-                        buzzerBeep(20); delay(15);
-                        buzzerBeep(20);
-                        lastStationaryWarning = millis();
-                    }
-                    prevMinDist = minDist;
-                } else if (minDist > prevMinDist + 200) { 
-                    // [BUG FIX] Biarkan prevMinDist naik saat objek menjauh,
-                    // tapi dengan hysteresis besar (200mm) untuk menghindari noise flutter.
-                    // Jika tidak ada ini, kacamata akan "tuli" setelah objek paling dekat pergi.
-                    prevMinDist = minDist;
-                }
-            } else {
-                prevMinDist = 2000;
-            }
-        } else {
-            // Moving Mode
-            if (minDist < 2000) {
-                if (minDist < prevMinDist - 80) {
-                    // Mendekat ke objek/tembok (Hysteresis 80mm)
-                    buzzerBeep(20); delay(15);
-                    buzzerBeep(20); delay(15);
-                    buzzerBeep(20);
-                    prevMinDist = minDist;
-                } else if (minDist > prevMinDist + 150) {
-                    // Menjauh dari objek (mencari jalan). Hysteresis lebih besar (150mm) 
-                    // agar tidak gampang memicu bunyi "menjauh" hanya karena noise.
-                    buzzerBeep(100); delay(100);
-                    buzzerBeep(100);
-                    prevMinDist = minDist;
-                }
-            } else {
-                if (prevMinDist < 2000) {
-                    // Objek hilang (jalan kosong)
-                    buzzerBeep(100); delay(100);
-                    buzzerBeep(100);
-                }
-                prevMinDist = 2000;
-            }
-        }
-    } else if (gotData && udpClientReady && !powerSaveMode) {
+    // [MODE OFFLINE DIHAPUS] Sistem tidak memiliki aktuator peringatan lokal.
+    // Saat tidak ada koneksi ke Android, sensor terus berjalan namun data dibuang.
+    // Kacamata masuk mode hemat daya (power-save) dan terus mencoba reconnect.
+
+    if (gotData && isOnline) {
         uint16_t numCells = 64; // Statically 8x8
         uint16_t distSize = numCells * 2;             // int16_t per cell
         uint16_t statSize = numCells;                 // 1 byte status per cell
@@ -1271,25 +1209,51 @@ void handlePowerSaveAndCleanup(uint64_t nowUs, uint32_t nowMs) {
 
 void handleWiFiReconnection(uint32_t nowMs) {
     if (!wifiConnected || bleActive) return;
-    static uint32_t lastWifiCheck = 0;
-    if (nowMs - lastWifiCheck >= 1000) {
-        lastWifiCheck = nowMs;
-        if (WiFi.status() != WL_CONNECTED) {
-            if (!isWifiDisconnected) {
-                isWifiDisconnected = true; wifiDisconnectTime = nowMs;
-                Serial.println("[WiFi] Koneksi WiFi terputus! Mencoba menyambung kembali...");
-                WiFi.disconnect(); WiFi.begin(currentSSID.c_str(), currentPassword.c_str());
-            } else {
-                if (nowMs - wifiDisconnectTime > 30000 && isSensorActive) {
-                    Serial.println("[WiFi] Terputus > 30 detik. Menangguhkan sensor sementara untuk hemat daya...");
-                }
-            }
-        } else {
-            if (isWifiDisconnected) {
-                isWifiDisconnected = false;
-                Serial.println("[WiFi] Koneksi WiFi berhasil tersambung kembali!");
-                
-            }
+    static uint32_t lastWifiCheck    = 0;
+    static uint32_t lastReconnectAttempt = 0;
+    static uint8_t  reconnectCount   = 0;
+    
+    if (nowMs - lastWifiCheck < 1000) return;
+    lastWifiCheck = nowMs;
+
+    if (WiFi.status() != WL_CONNECTED) {
+        if (!isWifiDisconnected) {
+            // Baru saja terputus — tandai dan mulai power-save
+            isWifiDisconnected  = true;
+            wifiDisconnectTime  = nowMs;
+            reconnectCount      = 0;
+            udpClientReady      = false; // Tandai client tidak valid
+            powerSaveMode       = true;  // Masuk mode hemat daya segera
+            Serial.println("[WiFi] Koneksi terputus! Masuk mode hemat daya & mencoba reconnect...");
+        }
+
+        // Coba reconnect setiap 5 detik (pasif, tidak blocking)
+        if (nowMs - lastReconnectAttempt >= 5000) {
+            lastReconnectAttempt = nowMs;
+            reconnectCount++;
+            Serial.printf("[WiFi] Percobaan reconnect ke-% u ke SSID: %s\n", reconnectCount, currentSSID.c_str());
+            WiFi.disconnect();
+            WiFi.begin(currentSSID.c_str(), currentPassword.c_str());
+        }
+
+        // Indikator LED: kedip lambat oranye saat mencari koneksi
+        static uint32_t lastReconLed = 0;
+        static bool     reconLedOn   = false;
+        if (nowMs - lastReconLed >= 2000) {
+            lastReconLed = nowMs;
+            reconLedOn   = !reconLedOn;
+            if (reconLedOn) ledOrange(); else ledOff();
+        }
+
+    } else {
+        // Berhasil reconnect
+        if (isWifiDisconnected) {
+            isWifiDisconnected = false;
+            powerSaveMode      = false; // Keluar dari mode hemat daya
+            reconnectCount     = 0;
+            Serial.println("[WiFi] Koneksi WiFi berhasil tersambung kembali!");
+            Serial.println("[WiFi] Menunggu Android app mengirim UDP handshake...");
+            ledGreen();
         }
     }
 }
@@ -1328,7 +1292,6 @@ void handleStatsAndHeartbeat(uint32_t nowMs) {
 // ======== SETUP ========
 void setup() {
     pinMode(LED_PIN, OUTPUT);
-    pinMode(BUZZER_PIN, OUTPUT);
     ledOff();
     pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
 

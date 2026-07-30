@@ -103,6 +103,10 @@ class NavigationCoordinator {
     private var accumulatedYawSinceAlert: Float = 0f
     private var openSpaceWalkFrames: Int = 0
 
+    private var wasHeadRotating = false
+    var headRotationStopTimeMs = 0L
+        private set
+
     /**
      * Dipanggil saat TTS berhasil mengucapkan peringatan.
      * Menyimpan snapshot status spasial dan semantik terakhir.
@@ -160,9 +164,7 @@ class NavigationCoordinator {
 
                     val aLin = imuData[5]
                     val isStaticObject = objectLabel == "tembok"
-                    if (isStaticObject && aLin < 2.94f) {
-                        vRaw = 0f
-                    }
+
 
                     vRawHistory[2] = vRawHistory[1]
                     vRawHistory[1] = vRawHistory[0]
@@ -195,6 +197,12 @@ class NavigationCoordinator {
         val pitchAngle = imuData?.getOrElse(0) { 0f } ?: 0f
         val rollAngle  = imuData?.getOrElse(1) { 0f } ?: 0f
         val isHeadRotatingNow = isHeadRotating(imuData, 45f)
+        
+        if (wasHeadRotating && !isHeadRotatingNow) {
+            headRotationStopTimeMs = System.currentTimeMillis()
+        }
+        wasHeadRotating = isHeadRotatingNow
+
         val isStaticObst = objectLabel == "tembok"
         val isAlertPermitted = !isHeadRotatingNow && !(isStaticObst && pitchAngle > 20f)
 

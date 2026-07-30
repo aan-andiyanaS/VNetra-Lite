@@ -84,8 +84,8 @@ class StreamService : Service() {
 
         // Constants for Latency Mocking/Estimation (ms)
         private const val LATENCY_HW_PING = 15L
-        private const val LATENCY_ALGO_PING = 5L
-        private const val LATENCY_TTS_PING = 0L // TTS delay currently not fully measured dynamically
+        private const val LATENCY_ALGO_PING = 5L // Fast geometric algorithm
+        private var dynamicTtsLatency = 0L // TTS delay dynamically measured
 
         const val EXTRA_IP    = "esp32_ip"
         const val ACTION_STOP     = "com.airi.vnetra.ACTION_STOP"
@@ -310,6 +310,7 @@ class StreamService : Service() {
         streamJob = serviceScope.launch {
             while (isActive && !stopped) {
                 val done = CompletableDeferred<Unit>()
+                SpatialMappingUtils.reset()
                 setConnectionState(ConnectionState.CONNECTING)
                 Log.d(TAG, "Connecting ws://$ip/ws (attempt #${reconnectAttempts + 1})")
 
@@ -692,7 +693,7 @@ class StreamService : Service() {
                     .asShortBuffer()
 
                 for (i in 0 until numCells) {
-                    ints[i] = buf.get(i).toInt() and 0xFFFF
+                    ints[i] = buf.get(i).toInt()
                 }
                 _tofFlow.emit(ints)
             } else {
@@ -708,6 +709,9 @@ class StreamService : Service() {
         super.onCreate()
         navigationCoordinator = NavigationCoordinator()
         ttsAlertManager = TtsAlertManager(this)
+        ttsAlertManager.onTtsLatencyMeasured = { latency ->
+            dynamicTtsLatency = latency
+        }
         ttsAlertManager.initTts()
         latencyLogger = LatencyLogger(this)
         
@@ -733,7 +737,7 @@ class StreamService : Service() {
                 val serial = if (wsPing > 0) wsPing else 5L
                 val hw = LATENCY_HW_PING
                 val algo = LATENCY_ALGO_PING
-                val tts = LATENCY_TTS_PING
+                val tts = dynamicTtsLatency
                 val total = hw + serial + algo + tts + btVal
 
                 if (_connectionState.value == ConnectionState.CONNECTED) {
@@ -794,7 +798,8 @@ class StreamService : Service() {
                 vAvg = physics.vAvg,
                 T = physics.dynamicThresholdT,
                 isAlertPermitted = physics.isAlertPermitted,
-                isSameSemanticState = physics.isSameSemanticState
+                isSameSemanticState = physics.isSameSemanticState,
+                headRotationStopTimeMs = navigationCoordinator.headRotationStopTimeMs
             )
 
             // Memori spasial dibiarkan kedaluwarsa secara alami di NavigationCoordinator,

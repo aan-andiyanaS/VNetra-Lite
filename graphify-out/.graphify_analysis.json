@@ -1,0 +1,470 @@
+{
+  "communities": {
+    "0": [
+      "app_src_main_java_com_airi_vnetra_service_streamservice",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_connectionstate",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_connectionstate_connected",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_connectionstate_connecting",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_connectionstate_disconnected",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_createstartintent",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_createstopintent",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_context",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_floatarray",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_intarray",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_intent",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_java",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_job",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_sharedflow",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_kt_stateflow",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_localbinder",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_localbinder_getservice",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_acquirewakelock",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_acquirewifilock",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_buildforegroundnotif",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_cancelallnotifications",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_createnotificationchannels",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_emitimupayload",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_emittofpayload",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_evaluateobstacles",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_onbind",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_oncreate",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_ondestroy",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_onstartcommand",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_ontaskremoved",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_registernetworkcallback",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_sendconnectedheadsup",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_sendcustomcommand",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_sendtofmodecommand",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_setconnectionstate",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_startstreaming",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_startudpreceiver",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_stopstreamandrelease",
+      "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice_updatebluetoothstatus",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencymetrics",
+      "binder",
+      "bytearray",
+      "connectivitymanager",
+      "ibinder",
+      "notification",
+      "powermanager",
+      "service",
+      "websocket",
+      "wifimanager"
+    ],
+    "1": [
+      "activitydeviceconfigbinding",
+      "alertdialog",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_fromstring",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_signalstrength",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_signalstrength_excellent",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_signalstrength_fair",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_signalstrength_good",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_signalstrength_weak",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_wifiinfo",
+      "app_src_main_java_com_airi_vnetra_model_wifiinfo_wifiinfo_getsignalstrength",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_connecttodevice",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_connecttowifi",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_dptopx",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_handleconnectresponse",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_observestate",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_oncreate",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_ondestroy",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_onsupportnavigateup",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_processreceiveddata",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_scanwifi",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_setupclicklisteners",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_setuprecyclerview",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_showpassworddialog",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_updateconnectionui",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity_updatestreambuttonvisibility",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_kt_appcompatactivity",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_kt_bundle",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_kt_recyclerview",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_kt_viewgroup",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_kt_viewholder",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_viewholder",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_viewholder_bind",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter_getitemcount",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter_onbindviewholder",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter_oncreateviewholder",
+      "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter_submitlist",
+      "dialogwifipasswordbinding"
+    ],
+    "2": [
+      "activitystreambinding",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_connecting",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_createintent",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_error",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_kt_appcompatactivity",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_kt_bundle",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_kt_context",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_kt_floatarray",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_kt_intarray",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_kt_intent",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_kt_job",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_akhiriproses",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_cancelalljobs",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_clearstalesensordisplay",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_dptopx",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_getactionbarheight",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_hidebadgesafe",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_konfirmasiakhiriproses",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_oncreate",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_ondestroy",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_onnewintent",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_onstart",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_onstop",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_onsupportnavigateup",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_processtofdata",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_requestbatteryoptimizationbypass",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_requestnotificationpermission",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_setupbadgeswipegesture",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_setupclicklisteners",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_showbadgesafe",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_showstreamstatesafe",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_startcollectingsensors",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_startobservingconnectionstate",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_togglefullscreen",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_updatelatencymonitorui",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity_updateupperviewsmargins",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streaming",
+      "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamstate",
+      "com"
+    ],
+    "3": [
+      "activitymainbinding",
+      "app_src_main_java_com_airi_vnetra_mainactivity",
+      "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter",
+      "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter_getitemcount",
+      "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter_onbindviewholder",
+      "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter_oncreateviewholder",
+      "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter_submitlist",
+      "app_src_main_java_com_airi_vnetra_mainactivity_kt_appcompatactivity",
+      "app_src_main_java_com_airi_vnetra_mainactivity_kt_bundle",
+      "app_src_main_java_com_airi_vnetra_mainactivity_kt_recyclerview",
+      "app_src_main_java_com_airi_vnetra_mainactivity_kt_scanresult",
+      "app_src_main_java_com_airi_vnetra_mainactivity_kt_viewgroup",
+      "app_src_main_java_com_airi_vnetra_mainactivity_kt_viewholder",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_checkbluetoothandscan",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_checkpermissionsandscan",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_dptopx",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_hasbleconnectpermission",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_observestate",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_oncreate",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_ondestroy",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_setupclicklisteners",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_startautoconnectcheck",
+      "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity_startscan",
+      "app_src_main_java_com_airi_vnetra_mainactivity_viewholder",
+      "app_src_main_java_com_airi_vnetra_mainactivity_viewholder_bind",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager_clearactivesession",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager_clearsession",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager_getlastdeviceip",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager_getlastdevicemac",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager_getsavedesp32ip",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager_saveesp32ip",
+      "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager_savelastdevicemac",
+      "kotlinx",
+      "sharedpreferences"
+    ],
+    "4": [
+      "app_src_main_java_com_airi_vnetra_ble_blemanager",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_close",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_connect",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_connectwifi",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_disconnect",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_dispatchdata",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_isbluetoothenabled",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_scanwifi",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_sendcommand",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_startscan",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_stopscan",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_writecccd",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_connectionstate",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_connectionstate_connected",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_connectionstate_connecting",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_connectionstate_disconnected",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_connectionstate_discovering_services",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_connectionstate_ready",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_kt_scanresult",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_kt_sharedflow",
+      "app_src_main_java_com_airi_vnetra_ble_blemanager_kt_stateflow",
+      "bluetoothadapter",
+      "bluetoothdevice",
+      "bluetoothgatt",
+      "bluetoothgattcharacteristic",
+      "bluetoothgattdescriptor",
+      "connectionstate"
+    ],
+    "5": [
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_getadaptivethreshold",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_hasactivealerts",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_inittts",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_process",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_resetallflags",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_shutdown",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_speak",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_speakforce",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_speakqueue",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_starta2dpkeepalive",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_stopspeaking",
+      "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsmessage",
+      "audioattributes",
+      "audiotrack",
+      "texttospeech"
+    ],
+    "6": [
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_cell",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_kt_floatarray",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_kt_intarray",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_obstacleanalysis",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_analyzeterrain",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_clockdirectiontotts",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_extractclosecells",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_getcolumnclockdirection",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_getholdoverframes",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_getsmootheddistances"
+    ],
+    "7": [
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_kt_floatarray",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_calculatedynamicthreshold",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_clearobstaclememory",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_getdistancezone",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_isheadrotating",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_recordobstaclealerted",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_resetphysics",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_updatemovementstate",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_obstaclephysics"
+    ],
+    "8": [
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_kt_floatarray",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_kt_intarray",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer_cleargrid",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer_getcolorfordistance",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer_getgridsize",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer_initializegrid",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer_rebuildgrid",
+      "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer_updategrid",
+      "textview"
+    ],
+    "9": [
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_kt_java",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_finalflush",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_flush",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_getavg",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_getmax",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_getmin",
+      "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_record"
+    ],
+    "10": [
+      "gradlew",
+      "gradlew__entry",
+      "gradlew_die",
+      "gradlew_warn"
+    ],
+    "11": [
+      "app_src_androidtest_java_com_airi_vnetra_exampleinstrumentedtest",
+      "app_src_androidtest_java_com_airi_vnetra_exampleinstrumentedtest_exampleinstrumentedtest",
+      "app_src_androidtest_java_com_airi_vnetra_exampleinstrumentedtest_exampleinstrumentedtest_useappcontext"
+    ],
+    "12": [
+      "app_src_test_java_com_airi_vnetra_exampleunittest",
+      "app_src_test_java_com_airi_vnetra_exampleunittest_exampleunittest",
+      "app_src_test_java_com_airi_vnetra_exampleunittest_exampleunittest_addition_iscorrect"
+    ],
+    "13": [
+      "app_build_gradle"
+    ],
+    "14": [
+      "build_gradle"
+    ],
+    "15": [
+      "settings_gradle"
+    ]
+  },
+  "cohesion": {
+    "0": 0.06588235294117648,
+    "1": 0.08292682926829269,
+    "2": 0.08414634146341464,
+    "3": 0.08408408408408409,
+    "4": 0.08465608465608465,
+    "5": 0.17647058823529413,
+    "6": 0.25757575757575757,
+    "7": 0.32727272727272727,
+    "8": 0.2727272727272727,
+    "9": 0.42857142857142855,
+    "10": 0.8333333333333334,
+    "11": 0.6666666666666666,
+    "12": 0.6666666666666666,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0
+  },
+  "gods": [
+    {
+      "id": "app_src_main_java_com_airi_vnetra_service_streamservice_streamservice",
+      "label": "StreamService",
+      "degree": 42
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamactivity",
+      "label": "StreamActivity",
+      "degree": 35
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager",
+      "label": "BleManager",
+      "degree": 25
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_deviceconfigactivity",
+      "label": "DeviceConfigActivity",
+      "degree": 23
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_mainactivity_mainactivity",
+      "label": "MainActivity",
+      "degree": 17
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager",
+      "label": "TtsAlertManager",
+      "degree": 17
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_util_sessionmanager_sessionmanager",
+      "label": "SessionManager",
+      "degree": 15
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter",
+      "label": "DeviceAdapter",
+      "degree": 11
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter",
+      "label": "WifiAdapter",
+      "degree": 11
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator",
+      "label": "NavigationCoordinator",
+      "degree": 11
+    }
+  ],
+  "surprises": [
+    {
+      "source": "MainActivity",
+      "target": "BleManager",
+      "source_files": [
+        "app/src/main/java/com/airi/vnetra/MainActivity.kt",
+        "app/src/main/java/com/airi/vnetra/ble/BleManager.kt"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "DeviceConfigActivity",
+      "target": "BleManager",
+      "source_files": [
+        "app/src/main/java/com/airi/vnetra/ui/DeviceConfigActivity.kt",
+        "app/src/main/java/com/airi/vnetra/ble/BleManager.kt"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "StreamService",
+      "target": "LatencyLogger",
+      "source_files": [
+        "app/src/main/java/com/airi/vnetra/service/StreamService.kt",
+        "app/src/main/java/com/airi/vnetra/util/LatencyLogger.kt"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "StreamService",
+      "target": "NavigationCoordinator",
+      "source_files": [
+        "app/src/main/java/com/airi/vnetra/service/StreamService.kt",
+        "app/src/main/java/com/airi/vnetra/util/NavigationCoordinator.kt"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "StreamService",
+      "target": "TtsAlertManager",
+      "source_files": [
+        "app/src/main/java/com/airi/vnetra/service/StreamService.kt",
+        "app/src/main/java/com/airi/vnetra/util/TtsAlertManager.kt"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `StreamActivity` connect `StreamActivity` to `StreamService`, `ToFGridRenderer`, `MainActivity`?",
+      "why": "High betweenness centrality (0.527) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `StreamService` connect `StreamService` to `LatencyLogger`, `StreamActivity`, `TtsAlertManager`, `NavigationCoordinator`?",
+      "why": "High betweenness centrality (0.459) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `SessionManager` connect `MainActivity` to `DeviceConfigActivity`, `StreamActivity`?",
+      "why": "High betweenness centrality (0.445) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `DISCONNECTED`, `CONNECTING`, `CONNECTED` to the rest of the system?",
+      "why": "15 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `StreamService` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.06588235294117648 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `DeviceConfigActivity` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.08292682926829269 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `StreamActivity` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.08414634146341464 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

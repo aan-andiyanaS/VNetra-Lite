@@ -108,6 +108,15 @@ object SpatialMappingUtils {
         for (i in 0..63) {
             val rawDist = tofData[i]
             
+            if (rawDist < 0) {
+                if (holdoverFrames[i] > 0) {
+                    holdoverFrames[i]--
+                } else {
+                    emaDistances[i] = -1f
+                }
+                continue
+            }
+            
             val dist = if (rawDist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
                 holdoverFrames[i] = MAX_HOLDOVER
                 if (emaDistances[i] < 0f) {
