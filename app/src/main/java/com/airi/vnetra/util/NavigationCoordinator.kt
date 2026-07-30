@@ -163,8 +163,15 @@ class NavigationCoordinator {
                     if (dt > 0.5f) dt = 0.5f
 
                     val vHead = vHeadBase * dObj
-                    var vRaw = ((dPrev - dObj) / dt) - vHead
-                    if (vRaw < 0f) vRaw = 0f
+                    val dDelta = dPrev - dObj
+
+                    // Dead-band: abaikan perubahan ToF < 15mm (noise floor VL53L5CX ~±10mm).
+                    // Tanpa ini, delta kecil dibagi dt pendek → spike vRaw ratusan mm/s.
+                    var vRaw = if (kotlin.math.abs(dDelta) < 15) {
+                        0f
+                    } else {
+                        ((dDelta / dt) - vHead).coerceIn(0f, 2000f) // cap at max walking speed
+                    }
 
                     vRawHistory[2] = vRawHistory[1]
                     vRawHistory[1] = vRawHistory[0]
