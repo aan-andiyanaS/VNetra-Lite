@@ -169,6 +169,9 @@ class NavigationCoordinator {
                     vRawHistory[0] = vRaw
 
                     val validCount = vRawHistory.count { it > 0f }
+                    // Trade-off C9: Fallback to vRawHistory[0] if older history is 0.
+                    // This intentionally gives double-weight to the latest reading 
+                    // which slightly inflates vAvg, increasing the threshold T (safer).
                     vAvg = if (validCount > 0) {
                         (vRawHistory[0] + (if (vRawHistory[1] > 0f) vRawHistory[1] else vRawHistory[0]) + (if (vRawHistory[2] > 0f) vRawHistory[2] else vRawHistory[0])) / 3f
                     } else vRaw

@@ -82,6 +82,11 @@ class StreamService : Service() {
         private const val RECONNECT_BASE_MS = 1_000L
         private const val RECONNECT_MAX_MS  = 8_000L
 
+        // Constants for Latency Mocking/Estimation (ms)
+        private const val LATENCY_HW_PING = 15L
+        private const val LATENCY_ALGO_PING = 5L
+        private const val LATENCY_TTS_PING = 0L // TTS delay currently not fully measured dynamically
+
         const val EXTRA_IP    = "esp32_ip"
         const val ACTION_STOP     = "com.airi.vnetra.ACTION_STOP"
         const val ACTION_EXIT_APP = "com.airi.vnetra.ACTION_EXIT_APP"
@@ -687,7 +692,7 @@ class StreamService : Service() {
                     .asShortBuffer()
 
                 for (i in 0 until numCells) {
-                    ints[i] = buf.get(i).toInt()
+                    ints[i] = buf.get(i).toInt() and 0xFFFF
                 }
                 _tofFlow.emit(ints)
             } else {
@@ -726,9 +731,9 @@ class StreamService : Service() {
                 val btVal = if (isBluetoothHeadsetConnected) 150L else 0L
                 val wsPing = _pingWebsocketFlow.value
                 val serial = if (wsPing > 0) wsPing else 5L
-                val hw = 15L
-                val algo = 5L
-                val tts = 0L
+                val hw = LATENCY_HW_PING
+                val algo = LATENCY_ALGO_PING
+                val tts = LATENCY_TTS_PING
                 val total = hw + serial + algo + tts + btVal
 
                 if (_connectionState.value == ConnectionState.CONNECTED) {

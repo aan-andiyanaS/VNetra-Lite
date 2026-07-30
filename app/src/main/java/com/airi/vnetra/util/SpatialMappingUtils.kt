@@ -1,5 +1,6 @@
 package com.airi.vnetra.util
 
+import androidx.annotation.VisibleForTesting
 import kotlin.math.roundToInt
 
 /**
@@ -21,7 +22,14 @@ object SpatialMappingUtils {
     private val emaDistances = FloatArray(64) { -1f }
     private val holdoverFrames = IntArray(64) { 0 }
     private const val MAX_HOLDOVER = 5 // approx 333ms at 15 FPS
-    private const val EMA_ALPHA = 0.3f // ponytail: simple, fast smoothing
+    private const val EMA_ALPHA = 0.6f // Increased for better responsiveness to fast approach
+
+    @VisibleForTesting
+    @Synchronized
+    fun reset() {
+        emaDistances.fill(-1f)
+        holdoverFrames.fill(0)
+    }
 
     fun getSmoothedDistances(): FloatArray = emaDistances
     fun getHoldoverFrames(): IntArray = holdoverFrames
