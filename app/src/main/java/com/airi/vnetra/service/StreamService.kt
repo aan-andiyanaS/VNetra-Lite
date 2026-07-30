@@ -363,15 +363,10 @@ class StreamService : Service() {
                                 val payload = raw.copyOfRange(FRAME_HEADER_SZ, raw.size)
 
                                 when (type) {
-                                    FRAME_TYPE_IMU   -> {  }
-                                    FRAME_TYPE_TOF   -> {  }
+                                    FRAME_TYPE_IMU   -> serviceScope.launch { emitImuPayload(payload) }
+                                    FRAME_TYPE_TOF   -> serviceScope.launch { emitTofPayload(payload) }
                                     FRAME_TYPE_HBEAT -> Log.d(TAG, "Heartbeat diterima")
                                     else -> Log.w(TAG, "Frame tidak dikenal: type=0x%02X size=${raw.size}B".format(type.toInt() and 0xFF))
-                                }
-
-                                when (type) {
-                                    FRAME_TYPE_IMU  -> serviceScope.launch { emitImuPayload(payload) }
-                                    FRAME_TYPE_TOF  -> serviceScope.launch { emitTofPayload(payload) }
                                 }
                             }
                         }
@@ -813,8 +808,10 @@ class StreamService : Service() {
         am.unregisterAudioDeviceCallback(audioDeviceCallback)
         
         if (::ttsAlertManager.isInitialized) ttsAlertManager.shutdown()
+        // stopStreamAndRelease() TIDAK dipanggil di sini karena sudah dipanggil
+        // oleh ACTION_STOP handler dan onTaskRemoved() sebelum stopSelf() triggered.
+        // Memanggil dua kali menyebabkan double finalFlush() dan speakForce() ke TTS yang sudah shutdown.
         super.onDestroy()
-        stopStreamAndRelease()
         cancelAllNotifications()
         runCatching { serviceScope.cancel() }
     }

@@ -38,11 +38,21 @@ class NavigationCoordinator {
     var isStationary = false
         private set
 
+    private var stationaryFrames = 0
+
+    /** Helper: mengekstrak laju rotasi IMU (pitch/roll/yaw) dengan noise gate 4°/s. */
+    private fun extractFilteredRates(imuData: FloatArray?): Triple<Float, Float, Float> {
+        fun Float.denoised() = if (abs(this) < 4.0f) 0f else this
+        return Triple(
+            (imuData?.getOrElse(3) { 0f } ?: 0f).denoised(), // pitchRate
+            (imuData?.getOrElse(2) { 0f } ?: 0f).denoised(), // rollRate
+            (imuData?.getOrElse(4) { 0f } ?: 0f).denoised()  // yawRate
+        )
+    }
+
     /** Memperbarui status pergerakan IMU (accelerometer/gyro). */
     fun updateMovementState(imuData: FloatArray?) {
-        val pitchRate = imuData?.getOrElse(3) { 0f }?.let { if (abs(it) < 4.0f) 0f else it } ?: 0f
-        val rollRate  = imuData?.getOrElse(2) { 0f }?.let { if (abs(it) < 4.0f) 0f else it } ?: 0f
-        val yawRate   = imuData?.getOrElse(4) { 0f }?.let { if (abs(it) < 4.0f) 0f else it } ?: 0f
+        val (pitchRate, rollRate, yawRate) = extractFilteredRates(imuData)
         val aLinMag   = imuData?.getOrElse(5) { 0f } ?: 0f
 
         val isHeadRotatingLocal = abs(pitchRate) > 45f || abs(yawRate) > 45f || abs(rollRate) > 45f
@@ -51,16 +61,22 @@ class NavigationCoordinator {
         val isAccelerating = (aLinMag > 1.0f) && !isHeadRotatingLocal
         if (isAccelerating) {
             movingForwardConsecutiveFrames++
+            stationaryFrames = 0
         } else {
             movingForwardConsecutiveFrames = 0
+            if (aLinMag <= 1.0f) {
+                stationaryFrames++
+            } else {
+                // Bergerak (aLinMag > 1.0) tapi tidak dianggap forward — reset stationaryFrames
+                // agar isRestingMode tidak terkunci permanen setelah pengguna kembali aktif.
+                stationaryFrames = 0
+            }
         }
     }
 
     /** Mendeteksi apakah kepala pengguna sedang memutar melebihi ambang batas. */
     fun isHeadRotating(imuData: FloatArray?, threshold: Float = 45f): Boolean {
-        val pitchRate = imuData?.getOrElse(3) { 0f }?.let { if (abs(it) < 4.0f) 0f else it } ?: 0f
-        val rollRate  = imuData?.getOrElse(2) { 0f }?.let { if (abs(it) < 4.0f) 0f else it } ?: 0f
-        val yawRate   = imuData?.getOrElse(4) { 0f }?.let { if (abs(it) < 4.0f) 0f else it } ?: 0f
+        val (pitchRate, rollRate, yawRate) = extractFilteredRates(imuData)
         return abs(pitchRate) > threshold || abs(yawRate) > threshold || abs(rollRate) > threshold
     }
 
@@ -189,10 +205,13 @@ class NavigationCoordinator {
 
         // IMU-based Semantic Obstacle Memory: evaluasi Fisika Murni (Tanpa Timer)
         val isTranslationallyValid = openSpaceWalkFrames < 40 // Invalid jika jalan bebas ~2 detik
+        val isRestingMode = stationaryFrames > 45
+        val currentHeadThreshold = if (isRestingMode) 180f else HEAD_ROTATION_THRESHOLD
+
         val headingUnchanged = lastAlertPitch != Float.MAX_VALUE &&
-            abs(pitchAngle - lastAlertPitch) < HEAD_ROTATION_THRESHOLD &&
-            abs(rollAngle  - lastAlertRoll)  < HEAD_ROTATION_THRESHOLD &&
-            abs(accumulatedYawSinceAlert)    < HEAD_ROTATION_THRESHOLD
+            abs(pitchAngle - lastAlertPitch) < currentHeadThreshold &&
+            abs(rollAngle  - lastAlertRoll)  < currentHeadThreshold &&
+            abs(accumulatedYawSinceAlert)    < currentHeadThreshold
 
         val currentZone = getDistanceZone(dObj, T)
         

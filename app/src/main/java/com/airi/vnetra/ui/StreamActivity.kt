@@ -99,9 +99,15 @@ class StreamActivity : AppCompatActivity() {
 
     private var badgeSwipeRevealed = false
 
-    @Volatile private var isAkhiring = false
+    private var isAkhiring = false
 
     @Volatile private var cachedTofGridSize = 0
+
+    /** Runnable untuk menyembunyikan label TTS setelah 3 detik (auto-hide). */
+    private val hideTtsAlertRunnable = Runnable {
+        if (!isDestroyed && !isFinishing)
+            binding.tvTtsAlert.visibility = android.view.View.GONE
+    }
 
     private val exitReceiver = object : android.content.BroadcastReceiver() {
         /** Menerima pesan sistem (Broadcast) untuk memicu penutupan aplikasi secara penuh. */
@@ -402,7 +408,7 @@ class StreamActivity : AppCompatActivity() {
                                     binding.tvImuAccel.text = "Mahony: warming up..."
                                 }
                                 binding.tvImuPitch.text     = "Pitch     : %5.1f°".format(imuData[0])
-                                binding.tvImuRoll.text      = "Dyn Accel : %5.1f".format(imuData[1])
+                                binding.tvImuRoll.text      = "Roll (φ)  : %5.1f°".format(imuData[1])
                                 val pRate = imuData[3].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
                                 val rRate = imuData[2].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
                                 val yRate = imuData[4].let { if (kotlin.math.abs(it) < 4.0f) 0.0f else it }
@@ -463,6 +469,9 @@ class StreamActivity : AppCompatActivity() {
                     runCatching {
                         binding.tvTtsAlert.text = ttsText
                         binding.tvTtsAlert.visibility = android.view.View.VISIBLE
+                        // Auto-hide setelah 3 detik agar teks stale tidak menempel di layar
+                        binding.tvTtsAlert.removeCallbacks(hideTtsAlertRunnable)
+                        binding.tvTtsAlert.postDelayed(hideTtsAlertRunnable, 3000L)
                     }
                 }
             }
@@ -638,6 +647,9 @@ class StreamActivity : AppCompatActivity() {
                 if (::tofGridRenderer.isInitialized) {
                     tofGridRenderer.clearGrid()
                 }
+                // Sembunyikan juga label TTS agar tidak menampilkan alert dari sesi sebelumnya
+                binding.tvTtsAlert.removeCallbacks(hideTtsAlertRunnable)
+                binding.tvTtsAlert.visibility = android.view.View.GONE
             }
         }
     }

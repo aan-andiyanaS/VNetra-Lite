@@ -56,7 +56,11 @@ object SpatialMappingUtils {
      * Menganalisis grid ToF (64 elemen) secara terpusat (Centroid Massa).
      * Jika rintangan membentang vertikal >= 4 baris, diklasifikasikan sebagai "tembok".
      * Arah jam ditentukan oleh pusat massa, dan jarak diambil dari titik terdekat.
+     *
+     * @Synchronized: mencegah race condition karena emaDistances[] dan holdoverFrames[]
+     * diakses dari dua thread berbeda (StreamService IO dan StreamActivity Default).
      */
+    @Synchronized
     fun analyzeTerrain(tofData: IntArray): ObstacleAnalysis? {
         if (tofData.size != 64) return null
 
@@ -69,9 +73,10 @@ object SpatialMappingUtils {
         // 2. Isolasi area bahaya (toleransi 300mm) untuk memisahkan dari background
         val dangerCells = closeCells.filter { it.dist <= nearestDist + 300 }
 
-        // 3. Syarat tembok: area bahaya membentang secara horizontal minimal 4 kolom
-        val distinctCols = dangerCells.map { it.col }.distinct()
-        val isWall = distinctCols.size >= 4
+        // 3. Syarat tembok: area bahaya membentang secara vertikal minimal 4 baris
+        // (bukan kolom — tembok bersifat tinggi/vertikal, bukan lebar/horizontal)
+        val distinctRows = dangerCells.map { it.row }.distinct()
+        val isWall = distinctRows.size >= 4
         val type = if (isWall) "tembok" else "halangan"
 
         // 4. Buat histogram jumlah sel per kolom dari area bahaya
