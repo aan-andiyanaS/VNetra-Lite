@@ -87,7 +87,8 @@ class NavigationCoordinator {
     // --- Physics State ---
     private var dObjPrev: Int? = null
     private var tsEspPrev: Float? = null
-    private val vRawHistory = FloatArray(3)
+    private var dObjSmoothed: Float = -1f  // EMA sekunder pada dObj sebelum diferensiasi
+    private var vRawEma: Float = 0f         // EMA pada output vRaw (lebih stabil dari 3-avg)
     var lastCalculatedT: Int = 1200
         private set
 
@@ -157,33 +158,30 @@ class NavigationCoordinator {
             if (isConverged) {
                 val dPrev = dObjPrev
                 val tsPrev = tsEspPrev
+
+                // EMA sekunder pada dObj: alpha=0.4 → tau≈60ms at 40Hz.
+                // Mengurangi noise "nearestDist" yang bisa lompat antar sel setiap frame.
+                // Reset ke dObj asli jika belum pernah ada data atau obstacle hilang.
+                dObjSmoothed = if (dObjSmoothed < 0f) dObj.toFloat()
+                               else (0.4f * dObj) + (0.6f * dObjSmoothed)
+                val dSmooth = dObjSmoothed.toInt()
+
                 if (dPrev != null && tsPrev != null && tsEsp != tsPrev) {
                     var dt = (tsEsp - tsPrev) / 1000f
                     if (dt < 0.001f) dt = 0.001f
                     if (dt > 0.5f) dt = 0.5f
 
-                    val vHead = vHeadBase * dObj
-                    val dDelta = dPrev - dObj
+                    val vHead = vHeadBase * dSmooth
+                    val dDelta = dPrev - dSmooth
 
-                    // Dead-band: abaikan perubahan ToF < 15mm (noise floor VL53L5CX ~±10mm).
-                    // Tanpa ini, delta kecil dibagi dt pendek → spike vRaw ratusan mm/s.
-                    var vRaw = if (kotlin.math.abs(dDelta) < 15) {
-                        0f
-                    } else {
-                        ((dDelta / dt) - vHead).coerceIn(0f, 2000f) // cap at max walking speed
-                    }
+                    // Dead-band: abaikan perubahan ToF < 15mm (noise floor VL53L5CX ±10mm).
+                    val vRaw = if (kotlin.math.abs(dDelta) < 15) 0f
+                               else ((dDelta / dt) - vHead).coerceIn(0f, 2000f)
 
-                    vRawHistory[2] = vRawHistory[1]
-                    vRawHistory[1] = vRawHistory[0]
-                    vRawHistory[0] = vRaw
-
-                    val validCount = vRawHistory.count { it > 0f }
-                    // Trade-off C9: Fallback to vRawHistory[0] if older history is 0.
-                    // This intentionally gives double-weight to the latest reading 
-                    // which slightly inflates vAvg, increasing the threshold T (safer).
-                    vAvg = if (validCount > 0) {
-                        (vRawHistory[0] + (if (vRawHistory[1] > 0f) vRawHistory[1] else vRawHistory[0]) + (if (vRawHistory[2] > 0f) vRawHistory[2] else vRawHistory[0])) / 3f
-                    } else vRaw
+                    // EMA pada vRaw: alpha=0.4 → tiap spike baru hanya berkontribusi 40%.
+                    // Lebih stabil dari 3-sample average sekaligus tetap responsif.
+                    vRawEma = (0.4f * vRaw) + (0.6f * vRawEma)
+                    vAvg = vRawEma
 
                     val tR = 2.0f
                     val momentumBuffer = imuData[5] * 200f
@@ -195,7 +193,7 @@ class NavigationCoordinator {
                     val filteredYawRate = if (abs(yawRate) < 4.0f) 0f else yawRate
                     accumulatedYawSinceAlert += filteredYawRate * dt
                 }
-                dObjPrev = dObj
+                dObjPrev = dSmooth
                 tsEspPrev = tsEsp
             }
         }
@@ -243,8 +241,15 @@ class NavigationCoordinator {
     fun resetPhysics() {
         dObjPrev = null
         tsEspPrev = null
-        for (i in vRawHistory.indices) vRawHistory[i] = 0f
+        dObjSmoothed = -1f
+        vRawEma = 0f
         lastCalculatedT = 1200
         clearObstacleMemory()
+    }
+
+    /** Dipanggil saat tidak ada obstacle terdeteksi, agar EMA tidak tercemar nilai fallback 2500. */
+    fun resetDObjSmoothed() {
+        dObjSmoothed = -1f
+        vRawEma = 0f
     }
 }

@@ -785,6 +785,10 @@ class StreamService : Service() {
             val clockDir = terrainAnalysis?.clockDirection ?: 12
             val objectLabel = terrainAnalysis?.type ?: "halangan"
 
+            // Reset EMA state saat tidak ada obstacle agar saat obstacle muncul kembali
+            // dObjSmoothed tidak tercemar nilai 2500 (fallback "no obstacle").
+            if (terrainAnalysis == null) navigationCoordinator.resetDObjSmoothed()
+
             val physics = navigationCoordinator.calculateDynamicThreshold(dObj, objectLabel, imuSnap)
             _physicsFlow.value = physics
 
