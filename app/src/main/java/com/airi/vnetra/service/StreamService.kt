@@ -154,6 +154,10 @@ class StreamService : Service() {
     private val _physicsFlow = MutableStateFlow<NavigationCoordinator.ObstaclePhysics?>(null)
     val physicsFlow: StateFlow<NavigationCoordinator.ObstaclePhysics?> = _physicsFlow.asStateFlow()
 
+    private val _ttsTextFlow = MutableStateFlow("")
+    /** Teks terakhir yang diucapkan TTS — dikonsumsi StreamActivity untuk ditampilkan di layar. */
+    val ttsTextFlow: StateFlow<String> = _ttsTextFlow.asStateFlow()
+
     @Volatile
     private var isBluetoothHeadsetConnected = false
 
@@ -699,8 +703,7 @@ class StreamService : Service() {
         }
     }
 
-    /** Dipanggil saat komponen dihancurkan; membersihkan resource. */
-
+    /** Fungsi siklus hidup Android: dieksekusi saat Service pertama kali dibuat. */
     override fun onCreate() {
         super.onCreate()
         navigationCoordinator = NavigationCoordinator()
@@ -756,7 +759,7 @@ class StreamService : Service() {
         }
     }
 
-    private var latestImuSnap: FloatArray? = null
+    @Volatile private var latestImuSnap: FloatArray? = null
     
 
     private fun evaluateObstacles(tofData: IntArray) {
@@ -800,6 +803,7 @@ class StreamService : Service() {
             if (obstacleAlert != null) {
                 navigationCoordinator.recordObstacleAlerted(imuSnap, dObj, physics.dynamicThresholdT)
                 ttsAlertManager.speak(obstacleAlert)
+                _ttsTextFlow.value = obstacleAlert
             }
         }
     }

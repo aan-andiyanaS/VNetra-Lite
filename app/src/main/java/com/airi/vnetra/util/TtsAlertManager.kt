@@ -36,10 +36,10 @@ class TtsAlertManager(private val context: Context) {
         const val EPS_CLEAR_ZONE = 150
     }
 
-    private var alertFlag: Boolean = false
+    @Volatile private var alertFlag: Boolean = false
     private var lastSpokenTime: Long = 0L
 
-    private var resetDebounceFrames = 0
+    @Volatile private var resetDebounceFrames = 0
     private var lastCalculatedT: Int = D_W0
 
     /** Menghitung ambang batas peringatan adaptif untuk deteksi jarak per-objek. */

@@ -271,6 +271,20 @@
 
         </LinearLayout>
 
+        <!-- Teks peringatan TTS terakhir (diperbarui setiap kali TTS berbicara) -->
+        <TextView
+            android:id="@+id/tvTtsAlert"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#FFD54F"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:textAlignment="center"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
+
         <ProgressBar
             android:id="@+id/progressStream"
             android:layout_width="wrap_content"

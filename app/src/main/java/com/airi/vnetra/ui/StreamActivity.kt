@@ -75,6 +75,7 @@ class StreamActivity : AppCompatActivity() {
     private var imuCollectJob:   Job? = null
     private var tofCollectJob:   Job? = null
     private var physicsCollectJob: Job? = null
+    private var ttsAlertCollectJob: Job? = null
     private var ipAddress:       String = ""
 
     private var currentTopInset = 0
@@ -238,7 +239,6 @@ class StreamActivity : AppCompatActivity() {
             streamService = null
         }
 
-        super.onDestroy()
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
@@ -454,6 +454,19 @@ class StreamActivity : AppCompatActivity() {
                 }
             }
         }
+
+        ttsAlertCollectJob?.cancel()
+        ttsAlertCollectJob = lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                svc.ttsTextFlow.collect { ttsText ->
+                    if (isDestroyed || isFinishing || isAkhiring || ttsText.isEmpty()) return@collect
+                    runCatching {
+                        binding.tvTtsAlert.text = ttsText
+                        binding.tvTtsAlert.visibility = android.view.View.VISIBLE
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun processTofData(
@@ -579,11 +592,12 @@ class StreamActivity : AppCompatActivity() {
 
     /** Membatalkan seluruh coroutine/job yang sedang berjalan. */
     private fun cancelAllJobs() {
-        runCatching { stateCollectJob?.cancel() };   stateCollectJob   = null
-        runCatching { imuCollectJob?.cancel() };     imuCollectJob     = null
-        runCatching { tofCollectJob?.cancel() };     tofCollectJob     = null
-        runCatching { physicsCollectJob?.cancel() }; physicsCollectJob = null
-        runCatching { latencyMonitorJob?.cancel() }; latencyMonitorJob = null
+        runCatching { stateCollectJob?.cancel() };     stateCollectJob     = null
+        runCatching { imuCollectJob?.cancel() };       imuCollectJob       = null
+        runCatching { tofCollectJob?.cancel() };       tofCollectJob       = null
+        runCatching { physicsCollectJob?.cancel() };   physicsCollectJob   = null
+        runCatching { ttsAlertCollectJob?.cancel() };  ttsAlertCollectJob  = null
+        runCatching { latencyMonitorJob?.cancel() };   latencyMonitorJob   = null
     }
 
     /** Memperbarui UI monitor latensi dan bottleneck. */
