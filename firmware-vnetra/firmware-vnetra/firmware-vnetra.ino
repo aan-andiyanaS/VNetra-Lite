@@ -827,8 +827,8 @@ void IMU_Task(void *pvParameters) {
 
     // Peningkatan Sensitivitas (Realisme Fisika): 
     // Turunkan alpha saat diam untuk stabilitas lebih baik
-    float gyro_mag = sqrt(wx_corr_deg*wx_corr_deg + wy_corr_deg*wy_corr_deg + wz_corr_deg*wz_corr_deg);
-    float ema_alpha = (gyro_mag > 10.0f) ? 0.4f : 0.15f;
+    float gyro_mag_corr = sqrt(wx_corr_deg*wx_corr_deg + wy_corr_deg*wy_corr_deg + wz_corr_deg*wz_corr_deg);
+    float ema_alpha = (gyro_mag_corr > 10.0f) ? 0.4f : 0.15f;
     a_lin_smooth = (ema_alpha * a_lin_mag_raw) + ((1.0f - ema_alpha) * a_lin_smooth);
     
     // Hanya tangkap bias saat relatif diam (cegah goncangan berjalan merusak titik 0)
