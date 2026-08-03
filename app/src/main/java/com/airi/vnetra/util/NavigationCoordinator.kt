@@ -87,13 +87,15 @@ class NavigationCoordinator {
     // --- Physics State ---
     private var dObjPrev: Int? = null
     private var tsEspPrev: Float? = null
-    private var dObjSmoothed: Float = -1f  // EMA sekunder pada dObj sebelum diferensiasi
-    private var vRawEma: Float = 0f         // EMA pada output vRaw (lebih stabil dari 3-avg)
+    private var dObjSmoothed: Float = -1f  // EWMA sekunder pada dObj sebelum diferensiasi
+    private var vRawEma: Float = 0f         // EWMA pada output vRaw (lebih stabil dari 3-avg)
+    private var lastVRaw: Float = 0f        // vRaw per-frame terakhir SEBELUM EWMA
     var lastCalculatedT: Int = 1200
         private set
 
     data class ObstaclePhysics(
-        val vAvg: Float,
+        val vRaw: Float,        // Kecepatan pendekatan sebelum EWMA (per-frame, lebih noisy)
+        val vAvg: Float,        // Kecepatan pendekatan setelah EWMA (lebih stabil)
         val dynamicThresholdT: Int,
         val isAlertPermitted: Boolean,
         val isSameSemanticState: Boolean
@@ -154,6 +156,10 @@ class NavigationCoordinator {
             val tsEsp = imuData[6]
             val vHeadBase = imuData[7]
             val isConverged = imuData[8] > 0.5f
+            // isConverged = flag warmup Mahony AHRS dari firmware ESP32.
+            // Bernilai 0.0 selama 100 frame pertama (~2.5 detik pada 40 Hz kirim),
+            // lalu 1.0 saat filter sudah stabil. Selama periode ini vAvg dan T
+            // tidak dihitung (fallback ke d_W0 = 1200 mm).
 
             if (isConverged) {
                 val dPrev = dObjPrev
@@ -174,14 +180,16 @@ class NavigationCoordinator {
                     val vHead = vHeadBase * dSmooth
                     val dDelta = dPrev - dSmooth
 
-                    // Dead-band: abaikan perubahan ToF < 15mm (noise floor VL53L5CX ±10mm).
+                    // vRaw: kecepatan pendekatan per-frame SEBELUM EWMA — lebih noisy, mencerminkan nilai mentah.
+                    // vRawEma: hasil EWMA dari vRaw — digunakan sebagai vAvg untuk Formula G.
                     val vRaw = if (kotlin.math.abs(dDelta) < 15) 0f
                                else ((dDelta / dt) - vHead).coerceIn(0f, 2000f)
 
-                    // EMA pada vRaw: alpha=0.4 → tiap spike baru hanya berkontribusi 40%.
+                    // EWMA pada vRaw: alpha=0.4 → tiap spike baru hanya berkontribusi 40%.
                     // Lebih stabil dari 3-sample average sekaligus tetap responsif.
                     vRawEma = (0.4f * vRaw) + (0.6f * vRawEma)
                     vAvg = vRawEma
+                    lastVRaw = vRaw
 
                     val tR = 2.0f
                     val momentumBuffer = imuData[5] * 200f
@@ -235,7 +243,7 @@ class NavigationCoordinator {
         // rintangan tidak mendekat, dan belum berjalan jauh di ruang kosong.
         val isSameSemanticState = isTranslationallyValid && headingUnchanged && (currentZone >= lastAlertZone)
 
-        return ObstaclePhysics(vAvg, T, isAlertPermitted, isSameSemanticState)
+        return ObstaclePhysics(lastVRaw, vAvg, T, isAlertPermitted, isSameSemanticState)
     }
 
     fun resetPhysics() {
@@ -243,13 +251,15 @@ class NavigationCoordinator {
         tsEspPrev = null
         dObjSmoothed = -1f
         vRawEma = 0f
+        lastVRaw = 0f
         lastCalculatedT = 1200
         clearObstacleMemory()
     }
 
-    /** Dipanggil saat tidak ada obstacle terdeteksi, agar EMA tidak tercemar nilai fallback 2500. */
+    /** Dipanggil saat tidak ada obstacle terdeteksi, agar EWMA tidak tercemar nilai fallback 2500. */
     fun resetDObjSmoothed() {
         dObjSmoothed = -1f
         vRawEma = 0f
+        lastVRaw = 0f
     }
 }

@@ -813,15 +813,11 @@ class StreamService : Service() {
             ) {
                 // M_buffer = imuData[5] * 200f (momentum buffer, sesuai NavigationCoordinator)
                 val mBuffer = imuSnap?.getOrElse(5) { 0f }?.times(200f) ?: 0f
-                // v_raw = vRawEma (sebelum digunakan sebagai vAvg) — diakses via physics.vAvg
-                // Karena vRawEma === vAvg pada output NavigationCoordinator, kita catat keduanya.
-                // vRaw per-frame tidak bisa diambil tanpa mengubah API NavigationCoordinator;
-                // ponytail: skip breaking change, catat vAvg di kedua kolom v_raw dan v_avg.
                 val frame = SessionFrame(
                     timestampMs = System.currentTimeMillis(),
                     dObjMm = dObj,
-                    vRawMmps = physics.vAvg,   // ponytail: vRaw ≈ vAvg setelah EWMA
-                    vAvgMmps = physics.vAvg,
+                    vRawMmps = physics.vRaw,   // vRaw per-frame SEBELUM EWMA (Mahony warmup guard aktif)
+                    vAvgMmps = physics.vAvg,   // vAvg setelah EWMA — digunakan Formula G
                     mBufferMm = mBuffer,
                     thresholdT = physics.dynamicThresholdT,
                     alertTriggered = obstacleAlert != null,
