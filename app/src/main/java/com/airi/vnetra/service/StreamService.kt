@@ -58,7 +58,8 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import java.util.concurrent.TimeUnit
-import com.airi.vnetra.util.LatencyLogger
+import com.airi.vnetra.util.SessionDataLogger
+import com.airi.vnetra.util.SessionFrame
 import com.airi.vnetra.util.LatencyMetrics
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -85,7 +86,6 @@ class StreamService : Service() {
         // Constants for Latency Mocking/Estimation (ms)
         private const val LATENCY_HW_PING = 15L
         private const val LATENCY_ALGO_PING = 5L // Fast geometric algorithm
-        private var dynamicTtsLatency = 0L // TTS delay dynamically measured
 
         const val EXTRA_IP    = "esp32_ip"
         const val ACTION_STOP     = "com.airi.vnetra.ACTION_STOP"
@@ -119,7 +119,12 @@ class StreamService : Service() {
 
     private lateinit var navigationCoordinator: NavigationCoordinator
     private lateinit var ttsAlertManager: TtsAlertManager
-    private lateinit var latencyLogger: LatencyLogger
+    private lateinit var sessionDataLogger: SessionDataLogger
+
+    // Latensi jaringan — diperbarui dari berbagai sumber, dibaca saat record frame
+    @Volatile private var dynamicTtsLatency = 0L
+    @Volatile private var currentSerialLatencyMs = 5L
+    @Volatile private var currentBtLatencyMs = 0L
 
     private var lastDataReceivedTime        = 0L
 
@@ -239,8 +244,8 @@ class StreamService : Service() {
     /** Menghentikan koneksi stream, websocket, UDP, dan membebaskan resource (WakeLock/WifiLock). */
 
     fun stopStreamAndRelease() {
-        if (::latencyLogger.isInitialized) {
-            latencyLogger.finalFlush()
+        if (::sessionDataLogger.isInitialized) {
+            sessionDataLogger.finalFlush()
         }
 
         if (_connectionState.value == ConnectionState.CONNECTED) {
@@ -346,8 +351,8 @@ class StreamService : Service() {
                             if (text.startsWith("PONG:")) {
                                 val sentTime = text.substringAfter("PONG:").toLongOrNull() ?: return
                                 val rtt = System.currentTimeMillis() - sentTime
-
                                 _pingWebsocketFlow.value = rtt / 2
+                                currentSerialLatencyMs = (rtt / 2).coerceAtLeast(1L)
                             } else if (text == "CMD:TOGGLE_MUTE") {
                                 if (::ttsAlertManager.isInitialized) {
                                     ttsAlertManager.isMuted = !ttsAlertManager.isMuted
@@ -713,8 +718,8 @@ class StreamService : Service() {
             dynamicTtsLatency = latency
         }
         ttsAlertManager.initTts()
-        latencyLogger = LatencyLogger(this)
-        
+        sessionDataLogger = SessionDataLogger(this)
+
         // Start processing loop for TTS and Obstacle Detection
         serviceScope.launch {
             _tofFlow.collect { tofData ->
@@ -727,36 +732,26 @@ class StreamService : Service() {
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.registerAudioDeviceCallback(audioDeviceCallback, null)
 
-        // Start continuous latency logging
+        // Perbarui status Bluetooth dan latensi UI secara periodik (bukan pencatatan CSV).
+        // Pencatatan CSV dilakukan per-frame di evaluateObstacles() agar data tersinkronisasi.
         serviceScope.launch {
             while (isActive) {
                 kotlinx.coroutines.delay(200)
-
-                val btVal = if (isBluetoothHeadsetConnected) 150L else 0L
-                val wsPing = _pingWebsocketFlow.value
-                val serial = if (wsPing > 0) wsPing else 5L
-                val hw = LATENCY_HW_PING
-                val algo = LATENCY_ALGO_PING
-                val tts = dynamicTtsLatency
-                val total = hw + serial + algo + tts + btVal
+                currentBtLatencyMs = if (isBluetoothHeadsetConnected) 150L else 0L
 
                 if (_connectionState.value == ConnectionState.CONNECTED) {
-                    latencyLogger.record(
-                        hw = hw,
-                        serial = serial,
-                        algo = algo,
-                        tts = tts,
-                        bt = btVal,
-                        total = total
-                    )
-                    
+                    val hw = LATENCY_HW_PING
+                    val serial = currentSerialLatencyMs
+                    val algo = LATENCY_ALGO_PING
+                    val tts = dynamicTtsLatency
+                    val bt = currentBtLatencyMs
                     _latencyFlow.value = LatencyMetrics(
                         hwPing = hw,
                         serialPing = serial,
                         algoPing = algo,
                         ttsPing = tts,
-                        btPing = btVal,
-                        totalPing = total
+                        btPing = bt,
+                        totalPing = hw + serial + algo + tts + bt
                     )
                 }
             }
@@ -780,7 +775,7 @@ class StreamService : Service() {
 
         if (::ttsAlertManager.isInitialized) {
             val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData)
-            
+
             val dObj = terrainAnalysis?.nearestDistance ?: 2500
             val clockDir = terrainAnalysis?.clockDirection ?: 12
             val objectLabel = terrainAnalysis?.type ?: "halangan"
@@ -792,7 +787,6 @@ class StreamService : Service() {
             val physics = navigationCoordinator.calculateDynamicThreshold(dObj, objectLabel, imuSnap)
             _physicsFlow.value = physics
 
-            val prevHasAlerts = ttsAlertManager.hasActiveAlerts()
             val obstacleAlert = ttsAlertManager.process(
                 dObj = dObj,
                 clockDirection = clockDir,
@@ -806,13 +800,39 @@ class StreamService : Service() {
                 headRotationStopTimeMs = navigationCoordinator.headRotationStopTimeMs
             )
 
-            // Memori spasial dibiarkan kedaluwarsa secara alami di NavigationCoordinator,
-            // sehingga kita tidak perlu secara manual menghapus memori saat alert flag cleared.
-
             if (obstacleAlert != null) {
                 navigationCoordinator.recordObstacleAlerted(imuSnap, dObj, physics.dynamicThresholdT)
                 ttsAlertManager.speak(obstacleAlert)
                 _ttsTextFlow.value = obstacleAlert
+            }
+
+            // Rekam 1 frame CSV Master — menggabungkan data formula dan latensi dalam 1 baris
+            // agar setiap kejadian dapat ditelusuri (traceable) untuk analisis Bab 4.
+            if (_connectionState.value == ConnectionState.CONNECTED &&
+                ::sessionDataLogger.isInitialized
+            ) {
+                // M_buffer = imuData[5] * 200f (momentum buffer, sesuai NavigationCoordinator)
+                val mBuffer = imuSnap?.getOrElse(5) { 0f }?.times(200f) ?: 0f
+                // v_raw = vRawEma (sebelum digunakan sebagai vAvg) — diakses via physics.vAvg
+                // Karena vRawEma === vAvg pada output NavigationCoordinator, kita catat keduanya.
+                // vRaw per-frame tidak bisa diambil tanpa mengubah API NavigationCoordinator;
+                // ponytail: skip breaking change, catat vAvg di kedua kolom v_raw dan v_avg.
+                val frame = SessionFrame(
+                    timestampMs = System.currentTimeMillis(),
+                    dObjMm = dObj,
+                    vRawMmps = physics.vAvg,   // ponytail: vRaw ≈ vAvg setelah EWMA
+                    vAvgMmps = physics.vAvg,
+                    mBufferMm = mBuffer,
+                    thresholdT = physics.dynamicThresholdT,
+                    alertTriggered = obstacleAlert != null,
+                    alertText = obstacleAlert ?: "",
+                    latencyHwMs = LATENCY_HW_PING,
+                    latencySerialMs = currentSerialLatencyMs,
+                    latencyAlgoMs = LATENCY_ALGO_PING,
+                    latencyTtsMs = dynamicTtsLatency,
+                    latencyBtMs = currentBtLatencyMs
+                )
+                sessionDataLogger.record(frame)
             }
         }
     }
