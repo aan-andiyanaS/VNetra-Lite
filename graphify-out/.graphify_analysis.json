@@ -54,6 +54,55 @@
       "wifimanager"
     ],
     "1": [
+      "asyncwebsocket",
+      "asyncwebsocketclient",
+      "awseventtype",
+      "bleserver",
+      "bleservercallbacks",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_bleconnectwifi",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_calibrateaccelbias",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_clearwificredentials",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_connecttowifi",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_getmpuevent",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_handlebleprovisioning",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_handlebutton",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_handlepowersaveandcleanup",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_handlestatsandheartbeat",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_handlewifireconnection",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_imu_task",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_initble",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_initmahonystate",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledblue",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledgreen",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledmagenta",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledoff",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledorange",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledred",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledwhite",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_ledyellow",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_loadaccelbias",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_loadwificredentials",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_loop",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_mahonyahrsupdateimu",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_onwsevent",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_saveaccelbias",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_savewificredentials",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_scanwifinetworks",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_servercallbacks",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_servercallbacks_onconnect",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_servercallbacks_ondisconnect",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_setledstate",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_setup",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_startsensorserver",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_tof_inittask",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_tof_task",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_triggerimucalibration",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_wifiinittask",
+      "sensors_event_t",
+      "string"
+    ],
+    "2": [
       "activitydeviceconfigbinding",
       "alertdialog",
       "app_src_main_java_com_airi_vnetra_model_wifiinfo",
@@ -96,7 +145,7 @@
       "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter_submitlist",
       "dialogwifipasswordbinding"
     ],
-    "2": [
+    "3": [
       "activitystreambinding",
       "app_src_main_java_com_airi_vnetra_ui_streamactivity",
       "app_src_main_java_com_airi_vnetra_ui_streamactivity_connecting",
@@ -139,7 +188,7 @@
       "app_src_main_java_com_airi_vnetra_ui_streamactivity_streamstate",
       "com"
     ],
-    "3": [
+    "4": [
       "activitymainbinding",
       "app_src_main_java_com_airi_vnetra_mainactivity",
       "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter",
@@ -178,7 +227,7 @@
       "kotlinx",
       "sharedpreferences"
     ],
-    "4": [
+    "5": [
       "app_src_main_java_com_airi_vnetra_ble_blemanager",
       "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager",
       "app_src_main_java_com_airi_vnetra_ble_blemanager_blemanager_close",
@@ -208,7 +257,7 @@
       "bluetoothgattdescriptor",
       "connectionstate"
     ],
-    "5": [
+    "6": [
       "app_src_main_java_com_airi_vnetra_util_ttsalertmanager",
       "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager",
       "app_src_main_java_com_airi_vnetra_util_ttsalertmanager_ttsalertmanager_getadaptivethreshold",
@@ -227,7 +276,22 @@
       "audiotrack",
       "texttospeech"
     ],
-    "6": [
+    "7": [
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_kt_floatarray",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_calculatedynamicthreshold",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_clearobstaclememory",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_extractfilteredrates",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_getdistancezone",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_isheadrotating",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_recordobstaclealerted",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_resetdobjsmoothed",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_resetphysics",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_updatemovementstate",
+      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_obstaclephysics"
+    ],
+    "8": [
       "app_src_main_java_com_airi_vnetra_util_spatialmappingutils",
       "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_cell",
       "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_kt_floatarray",
@@ -239,22 +303,10 @@
       "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_extractclosecells",
       "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_getcolumnclockdirection",
       "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_getholdoverframes",
-      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_getsmootheddistances"
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_getsmootheddistances",
+      "app_src_main_java_com_airi_vnetra_util_spatialmappingutils_spatialmappingutils_reset"
     ],
-    "7": [
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_kt_floatarray",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_calculatedynamicthreshold",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_clearobstaclememory",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_getdistancezone",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_isheadrotating",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_recordobstaclealerted",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_resetphysics",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator_updatemovementstate",
-      "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_obstaclephysics"
-    ],
-    "8": [
+    "9": [
       "app_src_main_java_com_airi_vnetra_util_tofgridrenderer",
       "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_kt_floatarray",
       "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_kt_intarray",
@@ -267,7 +319,7 @@
       "app_src_main_java_com_airi_vnetra_util_tofgridrenderer_tofgridrenderer_updategrid",
       "textview"
     ],
-    "9": [
+    "10": [
       "app_src_main_java_com_airi_vnetra_util_latencylogger_kt_java",
       "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger",
       "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_finalflush",
@@ -277,49 +329,57 @@
       "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_getmin",
       "app_src_main_java_com_airi_vnetra_util_latencylogger_latencylogger_record"
     ],
-    "10": [
+    "11": [
+      "blecharacteristic",
+      "blecharacteristiccallbacks",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_commandcallbacks",
+      "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_commandcallbacks_onwrite"
+    ],
+    "12": [
       "gradlew",
       "gradlew__entry",
       "gradlew_die",
       "gradlew_warn"
     ],
-    "11": [
+    "13": [
       "app_src_androidtest_java_com_airi_vnetra_exampleinstrumentedtest",
       "app_src_androidtest_java_com_airi_vnetra_exampleinstrumentedtest_exampleinstrumentedtest",
       "app_src_androidtest_java_com_airi_vnetra_exampleinstrumentedtest_exampleinstrumentedtest_useappcontext"
     ],
-    "12": [
+    "14": [
       "app_src_test_java_com_airi_vnetra_exampleunittest",
       "app_src_test_java_com_airi_vnetra_exampleunittest_exampleunittest",
       "app_src_test_java_com_airi_vnetra_exampleunittest_exampleunittest_addition_iscorrect"
     ],
-    "13": [
+    "15": [
       "app_build_gradle"
     ],
-    "14": [
+    "16": [
       "build_gradle"
     ],
-    "15": [
+    "17": [
       "settings_gradle"
     ]
   },
   "cohesion": {
-    "0": 0.06588235294117648,
-    "1": 0.08292682926829269,
-    "2": 0.08414634146341464,
-    "3": 0.08408408408408409,
-    "4": 0.08465608465608465,
-    "5": 0.17647058823529413,
-    "6": 0.25757575757575757,
-    "7": 0.32727272727272727,
-    "8": 0.2727272727272727,
-    "9": 0.42857142857142855,
-    "10": 0.8333333333333334,
-    "11": 0.6666666666666666,
-    "12": 0.6666666666666666,
-    "13": 1.0,
-    "14": 1.0,
-    "15": 1.0
+    "0": 0.06509803921568627,
+    "1": 0.10453283996299723,
+    "2": 0.08292682926829269,
+    "3": 0.08414634146341464,
+    "4": 0.08408408408408409,
+    "5": 0.08465608465608465,
+    "6": 0.17647058823529413,
+    "7": 0.2948717948717949,
+    "8": 0.23076923076923078,
+    "9": 0.2727272727272727,
+    "10": 0.42857142857142855,
+    "11": 0.5,
+    "12": 0.8333333333333334,
+    "13": 0.6666666666666666,
+    "14": 0.6666666666666666,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0
   },
   "gods": [
     {
@@ -358,18 +418,18 @@
       "degree": 15
     },
     {
-      "id": "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter",
-      "label": "DeviceAdapter",
-      "degree": 11
-    },
-    {
-      "id": "app_src_main_java_com_airi_vnetra_ui_deviceconfigactivity_wifiadapter",
-      "label": "WifiAdapter",
-      "degree": 11
-    },
-    {
       "id": "app_src_main_java_com_airi_vnetra_util_navigationcoordinator_navigationcoordinator",
       "label": "NavigationCoordinator",
+      "degree": 13
+    },
+    {
+      "id": "firmware_vnetra_firmware_vnetra_firmware_vnetra_graphify_handlebutton",
+      "label": "handleButton()",
+      "degree": 13
+    },
+    {
+      "id": "app_src_main_java_com_airi_vnetra_mainactivity_deviceadapter",
+      "label": "DeviceAdapter",
       "degree": 11
     }
   ],
@@ -433,18 +493,18 @@
   "questions": [
     {
       "type": "bridge_node",
-      "question": "Why does `StreamActivity` connect `StreamActivity` to `StreamService`, `ToFGridRenderer`, `MainActivity`?",
-      "why": "High betweenness centrality (0.527) - this node is a cross-community bridge."
+      "question": "Why does `StreamActivity` connect `Community 3` to `Community 0`, `Community 9`, `Community 4`?",
+      "why": "High betweenness centrality (0.371) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `StreamService` connect `StreamService` to `LatencyLogger`, `StreamActivity`, `TtsAlertManager`, `NavigationCoordinator`?",
-      "why": "High betweenness centrality (0.459) - this node is a cross-community bridge."
+      "question": "Why does `StreamService` connect `Community 0` to `Community 10`, `Community 3`, `Community 6`, `Community 7`?",
+      "why": "High betweenness centrality (0.327) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `SessionManager` connect `MainActivity` to `DeviceConfigActivity`, `StreamActivity`?",
-      "why": "High betweenness centrality (0.445) - this node is a cross-community bridge."
+      "question": "Why does `SessionManager` connect `Community 4` to `Community 2`, `Community 3`?",
+      "why": "High betweenness centrality (0.312) - this node is a cross-community bridge."
     },
     {
       "type": "isolated_nodes",
@@ -453,18 +513,18 @@
     },
     {
       "type": "low_cohesion",
-      "question": "Should `StreamService` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.06588235294117648 - nodes in this community are weakly interconnected."
+      "question": "Should `Community 0` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.06509803921568627 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
-      "question": "Should `DeviceConfigActivity` be split into smaller, more focused modules?",
+      "question": "Should `Community 1` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.10453283996299723 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 2` be split into smaller, more focused modules?",
       "why": "Cohesion score 0.08292682926829269 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `StreamActivity` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08414634146341464 - nodes in this community are weakly interconnected."
     }
   ]
 }

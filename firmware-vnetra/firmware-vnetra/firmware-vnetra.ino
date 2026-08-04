@@ -1,5 +1,5 @@
 /*
- * VNetra-Lite Firmware (ESP32-S3)
+ * VNetra-Lite Firmware (ESP32)
  * Fitur: BLE WiFi Provisioning + Sensor Stream (IMU & ToF) via WebSocket
  *
  * Alur Kerja:

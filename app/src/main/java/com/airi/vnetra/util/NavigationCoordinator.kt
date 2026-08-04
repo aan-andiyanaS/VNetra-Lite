@@ -191,7 +191,7 @@ class NavigationCoordinator {
                     vAvg = vRawEma
                     lastVRaw = vRaw
 
-                    val tR = 2.0f
+                    val tR = 2.5f // Waktu reaksi manusia (TTC) berdasarkan AASHTO Stopping Sight Distance
                     val momentumBuffer = imuData[5] * 200f
                     T = (d_W0 + (vAvg * tR) + momentumBuffer).toInt()
                     if (T > 4000) T = 4000

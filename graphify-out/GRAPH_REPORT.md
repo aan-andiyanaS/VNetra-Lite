@@ -1,27 +1,30 @@
-# Graph Report - E:\Project\Skripsi\VNetra-Lite  (2026-07-30)
+# Graph Report - e:/Project/Skripsi/VNetra-Lite  (2026-08-03)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 45 files · ~71,525 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 270 nodes · 423 edges · 16 communities (13 shown, 3 thin omitted)
+- 324 nodes · 545 edges · 18 communities (15 shown, 3 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- StreamService
-- DeviceConfigActivity
-- StreamActivity
-- MainActivity
-- BleManager
-- TtsAlertManager
-- SpatialMappingUtils
-- NavigationCoordinator
-- ToFGridRenderer
-- LatencyLogger
-- gradlew
-- ExampleInstrumentedTest
-- ExampleUnitTest
+- Android Stream Service dan State
+- ESP32 Firmware dan Sensor Tasks
+- WiFi Model dan Signal Strength
+- Stream Activity UI
+- MainActivity dan BLE Scanner
+- BLE Manager
+- TTS Alert Manager
+- Navigation dan Obstacle Physics
+- Spatial Mapping ToF EWMA
+- ToF Grid Renderer
+- Latency Logger
+- BLE Characteristic Callbacks
+- Gradle Build Scripts
+- Android Instrumented Tests
+- Unit Tests
 
 ## God Nodes (most connected - your core abstractions)
 1. `StreamService` - 42 edges
@@ -31,9 +34,9 @@
 5. `MainActivity` - 17 edges
 6. `TtsAlertManager` - 17 edges
 7. `SessionManager` - 15 edges
-8. `DeviceAdapter` - 11 edges
-9. `WifiAdapter` - 11 edges
-10. `NavigationCoordinator` - 11 edges
+8. `NavigationCoordinator` - 13 edges
+9. `handleButton()` - 13 edges
+10. `DeviceAdapter` - 11 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `MainActivity` --references--> `BleManager`  [EXTRACTED]
@@ -50,45 +53,53 @@
 ## Import Cycles
 - None detected.
 
-## Communities (16 total, 3 thin omitted)
+## Communities (18 total, 3 thin omitted)
 
-### Community 0 - "StreamService"
+### Community 0 - "Android Stream Service dan State"
 Cohesion: 0.07
 Nodes (26): ConnectionState, CONNECTED, CONNECTING, DISCONNECTED, createStartIntent(), createStopIntent(), Context, FloatArray (+18 more)
 
-### Community 1 - "DeviceConfigActivity"
+### Community 1 - "ESP32 Firmware dan Sensor Tasks"
+Cohesion: 0.10
+Nodes (42): AsyncWebSocket, AsyncWebSocketClient, AwsEventType, BLEServer, BLEServerCallbacks, bleConnectWifi(), calibrateAccelBias(), clearWiFiCredentials() (+34 more)
+
+### Community 2 - "WiFi Model dan Signal Strength"
 Cohesion: 0.08
 Nodes (18): ActivityDeviceConfigBinding, AlertDialog, fromString(), SignalStrength, EXCELLENT, FAIR, GOOD, WEAK (+10 more)
 
-### Community 2 - "StreamActivity"
+### Community 3 - "Stream Activity UI"
 Cohesion: 0.08
 Nodes (15): ActivityStreamBinding, CONNECTING, createIntent(), ERROR, AppCompatActivity, Bundle, Context, FloatArray (+7 more)
 
-### Community 3 - "MainActivity"
+### Community 4 - "MainActivity dan BLE Scanner"
 Cohesion: 0.08
 Nodes (13): ActivityMainBinding, DeviceAdapter, AppCompatActivity, Bundle, RecyclerView, ScanResult, ViewGroup, ViewHolder (+5 more)
 
-### Community 4 - "BleManager"
+### Community 5 - "BLE Manager"
 Cohesion: 0.08
 Nodes (16): BleManager, ConnectionState, CONNECTED, CONNECTING, DISCONNECTED, DISCOVERING_SERVICES, READY, ScanResult (+8 more)
 
-### Community 5 - "TtsAlertManager"
+### Community 6 - "TTS Alert Manager"
 Cohesion: 0.18
 Nodes (5): TtsAlertManager, TtsMessage, AudioAttributes, AudioTrack, TextToSpeech
 
-### Community 6 - "SpatialMappingUtils"
-Cohesion: 0.26
-Nodes (5): Cell, FloatArray, IntArray, ObstacleAnalysis, SpatialMappingUtils
-
-### Community 7 - "NavigationCoordinator"
-Cohesion: 0.33
+### Community 7 - "Navigation dan Obstacle Physics"
+Cohesion: 0.29
 Nodes (3): FloatArray, NavigationCoordinator, ObstaclePhysics
 
-### Community 8 - "ToFGridRenderer"
+### Community 8 - "Spatial Mapping ToF EWMA"
+Cohesion: 0.23
+Nodes (5): Cell, FloatArray, IntArray, ObstacleAnalysis, SpatialMappingUtils
+
+### Community 9 - "ToF Grid Renderer"
 Cohesion: 0.27
 Nodes (4): FloatArray, IntArray, ToFGridRenderer, TextView
 
-### Community 10 - "gradlew"
+### Community 11 - "BLE Characteristic Callbacks"
+Cohesion: 0.50
+Nodes (3): BLECharacteristic, BLECharacteristicCallbacks, CommandCallbacks
+
+### Community 12 - "Gradle Build Scripts"
 Cohesion: 0.83
 Nodes (3): gradlew script, die(), warn()
 
@@ -100,17 +111,17 @@ Nodes (3): gradlew script, die(), warn()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `StreamActivity` connect `StreamActivity` to `StreamService`, `ToFGridRenderer`, `MainActivity`?**
-  _High betweenness centrality (0.527) - this node is a cross-community bridge._
-- **Why does `StreamService` connect `StreamService` to `LatencyLogger`, `StreamActivity`, `TtsAlertManager`, `NavigationCoordinator`?**
-  _High betweenness centrality (0.459) - this node is a cross-community bridge._
-- **Why does `SessionManager` connect `MainActivity` to `DeviceConfigActivity`, `StreamActivity`?**
-  _High betweenness centrality (0.445) - this node is a cross-community bridge._
+- **Why does `StreamActivity` connect `Stream Activity UI` to `Android Stream Service dan State`, `ToF Grid Renderer`, `MainActivity dan BLE Scanner`?**
+  _High betweenness centrality (0.371) - this node is a cross-community bridge._
+- **Why does `StreamService` connect `Android Stream Service dan State` to `Latency Logger`, `Stream Activity UI`, `TTS Alert Manager`, `Navigation dan Obstacle Physics`?**
+  _High betweenness centrality (0.327) - this node is a cross-community bridge._
+- **Why does `SessionManager` connect `MainActivity dan BLE Scanner` to `WiFi Model dan Signal Strength`, `Stream Activity UI`?**
+  _High betweenness centrality (0.312) - this node is a cross-community bridge._
 - **What connects `DISCONNECTED`, `CONNECTING`, `CONNECTED` to the rest of the system?**
   _15 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `StreamService` be split into smaller, more focused modules?**
-  _Cohesion score 0.06588235294117648 - nodes in this community are weakly interconnected._
-- **Should `DeviceConfigActivity` be split into smaller, more focused modules?**
+- **Should `Android Stream Service dan State` be split into smaller, more focused modules?**
+  _Cohesion score 0.06509803921568627 - nodes in this community are weakly interconnected._
+- **Should `ESP32 Firmware dan Sensor Tasks` be split into smaller, more focused modules?**
+  _Cohesion score 0.10453283996299723 - nodes in this community are weakly interconnected._
+- **Should `WiFi Model dan Signal Strength` be split into smaller, more focused modules?**
   _Cohesion score 0.08292682926829269 - nodes in this community are weakly interconnected._
-- **Should `StreamActivity` be split into smaller, more focused modules?**
-  _Cohesion score 0.08414634146341464 - nodes in this community are weakly interconnected._
