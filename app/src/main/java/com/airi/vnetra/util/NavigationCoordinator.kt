@@ -181,9 +181,10 @@ class NavigationCoordinator {
                     val dDelta = dPrev - dSmooth
 
                     // vRaw: kecepatan pendekatan per-frame SEBELUM EWMA — lebih noisy, mencerminkan nilai mentah.
-                    // vRawEma: hasil EWMA dari vRaw — digunakan sebagai vAvg untuk Formula G.
+                    // Menggunakan absolute vHead memastikan kompensasi selalu mengurangi (subtract) 
+                    // kecepatan palsu terlepas dari polaritas +/- orientasi fisik MPU.
                     val vRaw = if (kotlin.math.abs(dDelta) < 15) 0f
-                               else ((dDelta / dt) - vHead).coerceIn(0f, 2000f)
+                               else ((dDelta / dt) - kotlin.math.abs(vHead)).coerceIn(0f, 2000f)
 
                     // EWMA pada vRaw: alpha=0.4 → tiap spike baru hanya berkontribusi 40%.
                     // Lebih stabil dari 3-sample average sekaligus tetap responsif.

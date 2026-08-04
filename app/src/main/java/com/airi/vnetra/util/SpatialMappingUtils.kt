@@ -66,56 +66,20 @@ object SpatialMappingUtils {
      * Menganalisis grid ToF (64 elemen) secara terpusat (Centroid Massa).
      * Jika rintangan membentang vertikal >= 4 baris, diklasifikasikan sebagai "tembok".
      * Arah jam ditentukan oleh pusat massa, dan jarak diambil dari titik terdekat.
-     *
-     * @Synchronized: mencegah race condition karena emaDistances[] dan holdoverFrames[]
-     * diakses dari dua thread berbeda (StreamService IO dan StreamActivity Default).
+     * 
+     * Refactor: Zero-allocation algorithm menggunakan bitmask dan primitif.
      */
     @Synchronized
     fun analyzeTerrain(tofData: IntArray): ObstacleAnalysis? {
         if (tofData.size != 64) return null
 
-        val closeCells = extractCloseCells(tofData)
-        if (closeCells.isEmpty()) return null
-
-        // 1. Cari titik yang paling mengancam (jarak terdekat absolut)
-        val nearestDist = closeCells.minOf { it.dist }
-
-        // 2. Isolasi area bahaya (toleransi 300mm) untuk memisahkan dari background
-        val dangerCells = closeCells.filter { it.dist <= nearestDist + 300 }
-
-        // 3. Syarat tembok: area bahaya membentang secara vertikal minimal 4 baris
-        // (bukan kolom — tembok bersifat tinggi/vertikal, bukan lebar/horizontal)
-        val distinctRows = dangerCells.map { it.row }.distinct()
-        val isWall = distinctRows.size >= 4
-        val type = if (isWall) "tembok" else "halangan"
-
-        // 4. Tentukan arah jam via centroid kolom (pusat massa area bahaya).
-        //    Centroid = rata-rata posisi kolom seluruh danger cells.
-        //    Lebih akurat dari histogram peak: tembok lebar → centroid di tengah,
-        //    halangan asimetris → centroid di sisi yang benar.
-        val centroidCol = dangerCells.map { it.col }.average().roundToInt().coerceIn(0, 7)
-        val clockDir = getColumnClockDirection(centroidCol)
-
-        return ObstacleAnalysis(
-            type = type,
-            clockDirection = clockDir,
-            nearestDistance = nearestDist
-        )
-    }
-
-    private data class Cell(val row: Int, val col: Int, val dist: Int)
-
-    private fun extractCloseCells(tofData: IntArray): List<Cell> {
-        val cells = mutableListOf<Cell>()
+        var nearestDist = Int.MAX_VALUE
+        
+        // 1. Update EMA & cari nearestDist dalam 1 pass (O(N))
         for (i in 0..63) {
             val rawDist = tofData[i]
-            
             if (rawDist < 0) {
-                if (holdoverFrames[i] > 0) {
-                    holdoverFrames[i]--
-                } else {
-                    emaDistances[i] = -1f
-                }
+                if (holdoverFrames[i] > 0) holdoverFrames[i]-- else emaDistances[i] = -1f
                 continue
             }
             
@@ -137,10 +101,39 @@ object SpatialMappingUtils {
                 }
             }
 
-            if (dist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
-                cells.add(Cell(row = i / 8, col = i % 8, dist = dist))
+            if (dist in CLOSE_DIST_MIN..CLOSE_DIST_MAX && dist < nearestDist) {
+                nearestDist = dist
             }
         }
-        return cells
+
+        if (nearestDist == Int.MAX_VALUE) return null
+
+        // 2. Isolasi area bahaya (toleransi 300mm) & hitung centroid tanpa alokasi (List/Set)
+        var rowMask = 0
+        var sumCol = 0
+        var count = 0
+
+        val maxDangerDist = nearestDist + 300
+        for (i in 0..63) {
+            val d = emaDistances[i].toInt()
+            if (d in CLOSE_DIST_MIN..maxDangerDist) {
+                rowMask = rowMask or (1 shl (i / 8))
+                sumCol += (i % 8)
+                count++
+            }
+        }
+        
+        if (count == 0) return null
+
+        // 3. Syarat tembok: area bahaya membentang vertikal minimal 4 baris
+        val distinctRowsCount = Integer.bitCount(rowMask)
+        val isWall = distinctRowsCount >= 4
+        val type = if (isWall) "tembok" else "halangan"
+
+        // 4. Tentukan arah jam via centroid kolom
+        val centroidCol = (sumCol.toFloat() / count).roundToInt().coerceIn(0, 7)
+        val clockDir = getColumnClockDirection(centroidCol)
+
+        return ObstacleAnalysis(type, clockDir, nearestDist)
     }
 }

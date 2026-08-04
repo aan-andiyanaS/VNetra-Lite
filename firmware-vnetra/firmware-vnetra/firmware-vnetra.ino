@@ -818,7 +818,10 @@ void IMU_Task(void *pvParameters) {
     float gx_gravity = g_const * 2.0f * (qx*qz - qw*qy);
     float gy_gravity = g_const * 2.0f * (qw*qx + qy*qz);
     float gz_gravity = g_const * (qw*qw - qx*qx - qy*qy + qz*qz);
-    float a_lin_mag_raw = sqrt(pow(ax - gx_gravity, 2) + pow(ay - gy_gravity, 2) + pow(az - gz_gravity, 2));
+    
+    // Isolasi akselerasi murni ke sumbu Y (Forward/Maju)
+    // Hindari penggunaan magnitudo (X, Y, Z) agar pantulan vertikal kaki (Z-axis bounce) tidak ditafsirkan sebagai inersia maju.
+    float a_lin_mag_raw = fabs(ay - gy_gravity);
     
     static float a_lin_smooth = 0.0f;
     static float a_lin_dc_bias = 0.0f;
