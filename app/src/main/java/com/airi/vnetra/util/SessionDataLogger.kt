@@ -20,16 +20,14 @@ data class SessionFrame(
     val alertTriggered: Boolean,
     val alertText: String,
     val latencyHwMs: Long,
-    val latencySerialMs: Long,
+    val latencyNetMs: Long,
     val latencyAlgoMs: Long,
     val latencyTtsMs: Long,
-    val latencyBtMs: Long
+    val latencyBtMs: Long,
+    val packetLossCount: Int
 ) {
     val latencyTotalMs: Long
-        get() = latencyHwMs + latencySerialMs + latencyAlgoMs + latencyTtsMs + latencyBtMs
-
-    val elapsedS: Long
-        get() = 0L // Diisi oleh SessionDataLogger saat penulisan
+        get() = latencyHwMs + latencyNetMs + latencyAlgoMs + latencyTtsMs + latencyBtMs
 
     fun toCsvRow(sessionStartMs: Long): String {
         val elapsed = (timestampMs - sessionStartMs) / 1000
@@ -37,8 +35,8 @@ data class SessionFrame(
             "${"%.2f".format(vRawMmps)},${"%.2f".format(vAvgMmps)}," +
             "${"%.2f".format(mBufferMm)},$thresholdT," +
             "${if (alertTriggered) 1 else 0},\"$alertText\"," +
-            "$latencyHwMs,$latencySerialMs,$latencyAlgoMs," +
-            "$latencyTtsMs,$latencyBtMs,$latencyTotalMs"
+            "$latencyHwMs,$latencyNetMs,$latencyAlgoMs," +
+            "$latencyTtsMs,$latencyBtMs,$latencyTotalMs,$packetLossCount"
     }
 }
 
@@ -48,7 +46,7 @@ data class SessionFrame(
  */
 data class LatencyMetrics(
     val hwPing: Long,
-    val serialPing: Long,
+    val netPing: Long,
     val algoPing: Long,
     val ttsPing: Long,
     val btPing: Long,
@@ -62,7 +60,7 @@ data class LatencyMetrics(
  * Satu baris CSV = satu frame evaluasi (±30 Hz), memuat:
  *   - Variabel formula: d_obj, v_raw, v_avg, M_buffer, Threshold T
  *   - Status alert: apakah peringatan terpicu dan teks TTS-nya
- *   - Latensi jaringan: Hardware, Serial (WebSocket RTT), Algoritma, TTS, Bluetooth, Total
+ *   - Latensi jaringan: Hardware, Net IoT (Upper Bound via TCP/WebSocket RTT), Algoritma, TTS, Bluetooth, Total
  *
  * File disimpan ke Documents/VNetra_Logs/VNetra_Session_<timestamp>.csv
  * Penulisan dilakukan langsung per-frame (tanpa ring-buffer agregasi)
@@ -116,8 +114,8 @@ class SessionDataLogger(context: Context) {
             "v_raw_mmps,v_avg_mmps," +
             "m_buffer_mm,threshold_T_mm," +
             "alert_triggered,alert_text," +
-            "latency_hw_ms,latency_serial_ms,latency_algo_ms," +
-            "latency_tts_ms,latency_bt_ms,latency_total_ms"
+            "latency_hw_ms,latency_net_ms,latency_algo_ms," +
+            "latency_tts_ms,latency_bt_ms,latency_total_ms,packet_loss_count"
         try {
             csvWriter?.append(header)?.append("\n")
             headerWritten = true

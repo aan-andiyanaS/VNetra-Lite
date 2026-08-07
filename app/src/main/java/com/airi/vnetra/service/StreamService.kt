@@ -112,6 +112,8 @@ class StreamService : Service() {
     private var watchdogJob: Job?           = null
     private var udpReceiverJob: Job?        = null
     private var activeUdpSocket: java.net.DatagramSocket? = null
+    private var lastPacketSeqNum: Long = -1L
+    private var totalPacketLoss: Int = 0
     private var activeWebSocket: WebSocket? = null
     private var reconnectAttempts           = 0
     private var ipAddress                   = ""
@@ -123,7 +125,7 @@ class StreamService : Service() {
 
     // Latensi jaringan — diperbarui dari berbagai sumber, dibaca saat record frame
     @Volatile private var dynamicTtsLatency = 0L
-    @Volatile private var currentSerialLatencyMs = 5L
+    @Volatile private var currentNetLatencyMs = 5L
     @Volatile private var currentBtLatencyMs = 0L
 
     private var lastDataReceivedTime        = 0L
@@ -352,7 +354,7 @@ class StreamService : Service() {
                                 val sentTime = text.substringAfter("PONG:").toLongOrNull() ?: return
                                 val rtt = System.currentTimeMillis() - sentTime
                                 _pingWebsocketFlow.value = rtt / 2
-                                currentSerialLatencyMs = (rtt / 2).coerceAtLeast(1L)
+                                currentNetLatencyMs = (rtt / 2).coerceAtLeast(1L)
                             } else if (text == "CMD:TOGGLE_MUTE") {
                                 if (::ttsAlertManager.isInitialized) {
                                     ttsAlertManager.isMuted = !ttsAlertManager.isMuted
@@ -664,6 +666,20 @@ class StreamService : Service() {
     /** Mem-parsing byte array payload IMU (pitch, roll, yaw, dll) dan memancarkannya via Flow. */
     private suspend fun emitImuPayload(payload: ByteArray) {
         when {
+            payload.size >= 40 -> {
+                val floats = FloatArray(9)
+                val buffer = java.nio.ByteBuffer.wrap(payload).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                buffer.asFloatBuffer().get(floats)
+                
+                val seqNum = buffer.getInt(36).toUInt().toLong()
+                if (lastPacketSeqNum != -1L && seqNum > lastPacketSeqNum + 1) {
+                    totalPacketLoss += (seqNum - lastPacketSeqNum - 1).toInt()
+                }
+                lastPacketSeqNum = seqNum
+
+                latestImuSnap = floats
+                _imuFlow.emit(floats)
+            }
             payload.size >= 36 -> {
                 val floats = FloatArray(9)
                 java.nio.ByteBuffer.wrap(payload)
@@ -741,17 +757,17 @@ class StreamService : Service() {
 
                 if (_connectionState.value == ConnectionState.CONNECTED) {
                     val hw = LATENCY_HW_PING
-                    val serial = currentSerialLatencyMs
+                    val net = currentNetLatencyMs
                     val algo = LATENCY_ALGO_PING
                     val tts = dynamicTtsLatency
                     val bt = currentBtLatencyMs
                     _latencyFlow.value = LatencyMetrics(
                         hwPing = hw,
-                        serialPing = serial,
+                        netPing = net,
                         algoPing = algo,
                         ttsPing = tts,
                         btPing = bt,
-                        totalPing = hw + serial + algo + tts + bt
+                        totalPing = hw + net + algo + tts + bt
                     )
                 }
             }
@@ -813,22 +829,23 @@ class StreamService : Service() {
             ) {
                 // M_buffer = imuData[5] * 200f (momentum buffer, sesuai NavigationCoordinator)
                 val mBuffer = imuSnap?.getOrElse(5) { 0f }?.times(200f) ?: 0f
-                val frame = SessionFrame(
-                    timestampMs = System.currentTimeMillis(),
-                    dObjMm = dObj,
-                    vRawMmps = physics.vRaw,   // vRaw per-frame SEBELUM EWMA (Mahony warmup guard aktif)
-                    vAvgMmps = physics.vAvg,   // vAvg setelah EWMA — digunakan Formula G
-                    mBufferMm = mBuffer,
-                    thresholdT = physics.dynamicThresholdT,
+                val sessionFrame = SessionFrame(
+                    timestampMs    = System.currentTimeMillis(),
+                    dObjMm         = dObj,
+                    vRawMmps       = physics.vRaw,
+                    vAvgMmps       = physics.vAvg,
+                    mBufferMm      = (imuSnap?.getOrElse(5) { 0f } ?: 0f) * 200f,
+                    thresholdT     = physics.dynamicThresholdT,
                     alertTriggered = obstacleAlert != null,
-                    alertText = obstacleAlert ?: "",
-                    latencyHwMs = LATENCY_HW_PING,
-                    latencySerialMs = currentSerialLatencyMs,
-                    latencyAlgoMs = LATENCY_ALGO_PING,
-                    latencyTtsMs = dynamicTtsLatency,
-                    latencyBtMs = currentBtLatencyMs
+                    alertText      = obstacleAlert ?: "",
+                    latencyHwMs    = LATENCY_HW_PING,
+                    latencyNetMs   = currentNetLatencyMs,
+                    latencyAlgoMs  = LATENCY_ALGO_PING,
+                    latencyTtsMs   = dynamicTtsLatency,
+                    latencyBtMs    = currentBtLatencyMs,
+                    packetLossCount = totalPacketLoss
                 )
-                sessionDataLogger.record(frame)
+                sessionDataLogger.record(sessionFrame)
             }
         }
     }

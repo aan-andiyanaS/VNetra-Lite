@@ -868,7 +868,8 @@ void IMU_Task(void *pvParameters) {
       // Urutan field sesuai Formula A.6:
       // [0]=θ(°)  [1]=φ(°)  [2]=ωx_corr(°/s)  [3]=ωy_corr(°/s)  [4]=ωz_corr(°/s)
       // [5]=‖a_lin‖(m/s²)  [6]=ts_esp_ms(ms)  [7]=v_head_base(rad/s)  [8]=is_converged
-      uint8_t imu_buf[45];
+      static uint32_t packet_seq_num = 0;
+      uint8_t imu_buf[49];
       uint64_t ts_us = esp_timer_get_time();
       imu_buf[0] = FRAME_TYPE_IMU;
       memcpy(imu_buf + 1, &ts_us, 8);
@@ -881,9 +882,11 @@ void IMU_Task(void *pvParameters) {
           is_converged                                     // [8]
       };
       memcpy(imu_buf + 9, payload, 36);
+      memcpy(imu_buf + 45, &packet_seq_num, 4);
+      packet_seq_num++;
 
-      AsyncUDPMessage imu_msg(45);
-      imu_msg.write(imu_buf, 45);
+      AsyncUDPMessage imu_msg(49);
+      imu_msg.write(imu_buf, 49);
       udpSensor.sendTo(imu_msg, activeClientIp, UDP_TARGET_PORT);
       stat_frames_imu++; // Counter untuk log statistik
     }
