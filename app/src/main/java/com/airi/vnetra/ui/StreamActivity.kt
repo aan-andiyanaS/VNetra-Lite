@@ -452,8 +452,8 @@ class StreamActivity : AppCompatActivity() {
                     if (physics != null) {
                         withContext(Dispatchers.Main) {
                             if (!isDestroyed && !isFinishing && !isAkhiring) {
-                                binding.tvPhysicsVelocity.text = "Speed : %5.2f m/s".format(physics.vAvg)
-                                binding.tvPhysicsThreshold.text = "Thresh: %4d mm".format(physics.dynamicThresholdT)
+                                binding.tvPhysicsVelocity.text = "Speed : %5.2f m/s".format(physics.emaApproachVelocityMmps)
+                                binding.tvPhysicsThreshold.text = "Thresh: %4d mm".format(physics.adaptiveThresholdMm)
                             }
                         }
                     }
@@ -618,7 +618,7 @@ class StreamActivity : AppCompatActivity() {
         val text = """
             === LATENCY PING ===
             Sensor HW : ${metrics.hwPing} ms
-            Serial    : ${metrics.serialPing} ms
+            Net (IoT) : ${metrics.netPing} ms
             Algoritma : ${metrics.algoPing} ms
             Audio TTS : ${metrics.ttsPing} ms
             Bluetooth : $btValue

@@ -7,16 +7,16 @@ import android.util.Log
  * Data class untuk satu frame data sesi pengujian.
  * Satu frame = satu siklus evaluateObstacles() di StreamService.
  *
- * Mencakup seluruh variabel formula navigasi (d_obj, v_raw, v_avg, M_buffer, T)
+ * Mencakup seluruh variabel formula navigasi (d_obj, v_raw, v_avg, M_buffer, adaptiveThresholdMm)
  * dan latensi jaringan dalam satu baris CSV — memastikan traceability penuh untuk Bab 4.
  */
 data class SessionFrame(
     val timestampMs: Long,
-    val dObjMm: Int,
-    val vRawMmps: Float,
-    val vAvgMmps: Float,
-    val mBufferMm: Float,
-    val thresholdT: Int,
+    val obstacleDistanceMm: Int,
+    val rawApproachVelocityMmps: Float,
+    val emaApproachVelocityMmps: Float,
+    val momentumBufferMm: Float,
+    val adaptiveThresholdMm: Int,
     val alertTriggered: Boolean,
     val alertText: String,
     val latencyHwMs: Long,
@@ -31,9 +31,9 @@ data class SessionFrame(
 
     fun toCsvRow(sessionStartMs: Long): String {
         val elapsed = (timestampMs - sessionStartMs) / 1000
-        return "$timestampMs,$elapsed,$dObjMm," +
-            "${"%.2f".format(vRawMmps)},${"%.2f".format(vAvgMmps)}," +
-            "${"%.2f".format(mBufferMm)},$thresholdT," +
+        return "$timestampMs,$elapsed,$obstacleDistanceMm," +
+            "${"%.2f".format(rawApproachVelocityMmps)},${"%.2f".format(emaApproachVelocityMmps)}," +
+            "${"%.2f".format(momentumBufferMm)},$adaptiveThresholdMm," +
             "${if (alertTriggered) 1 else 0},\"$alertText\"," +
             "$latencyHwMs,$latencyNetMs,$latencyAlgoMs," +
             "$latencyTtsMs,$latencyBtMs,$latencyTotalMs,$packetLossCount"
@@ -58,7 +58,7 @@ data class LatencyMetrics(
  *
  * Mencatat setiap frame data sesi pengujian ke file CSV Master.
  * Satu baris CSV = satu frame evaluasi (±30 Hz), memuat:
- *   - Variabel formula: d_obj, v_raw, v_avg, M_buffer, Threshold T
+ *   - Variabel formula: d_obj, v_raw, v_avg, M_buffer, Threshold adaptiveThresholdMm
  *   - Status alert: apakah peringatan terpicu dan teks TTS-nya
  *   - Latensi jaringan: Hardware, Net IoT (Upper Bound via TCP/WebSocket RTT), Algoritma, TTS, Bluetooth, Total
  *

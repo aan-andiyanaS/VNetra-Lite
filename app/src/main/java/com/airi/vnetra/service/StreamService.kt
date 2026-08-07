@@ -792,32 +792,32 @@ class StreamService : Service() {
         if (::ttsAlertManager.isInitialized) {
             val terrainAnalysis = SpatialMappingUtils.analyzeTerrain(tofData)
 
-            val dObj = terrainAnalysis?.nearestDistance ?: 2500
+            val obstacleDistanceMm = terrainAnalysis?.nearestDistance ?: 2500
             val clockDir = terrainAnalysis?.clockDirection ?: 12
             val objectLabel = terrainAnalysis?.type ?: "halangan"
 
             // Reset EMA state saat tidak ada obstacle agar saat obstacle muncul kembali
-            // dObjSmoothed tidak tercemar nilai 2500 (fallback "no obstacle").
+            // smoothedObstacleDistanceMm tidak tercemar nilai 2500 (fallback "no obstacle").
             if (terrainAnalysis == null) navigationCoordinator.resetDObjSmoothed()
 
-            val physics = navigationCoordinator.calculateDynamicThreshold(dObj, objectLabel, imuSnap)
+            val physics = navigationCoordinator.calculateDynamicThreshold(obstacleDistanceMm, objectLabel, imuSnap)
             _physicsFlow.value = physics
 
             val obstacleAlert = ttsAlertManager.process(
-                dObj = dObj,
+                obstacleDistanceMm = obstacleDistanceMm,
                 clockDirection = clockDir,
                 objectLabel = objectLabel,
                 isMovingForward = isMovingForward,
                 isStationary = isStationary,
-                vAvg = physics.vAvg,
-                T = physics.dynamicThresholdT,
+                emaApproachVelocityMmps = physics.emaApproachVelocityMmps,
+                adaptiveThresholdMm = physics.adaptiveThresholdMm,
                 isAlertPermitted = physics.isAlertPermitted,
                 isSameSemanticState = physics.isSameSemanticState,
                 headRotationStopTimeMs = navigationCoordinator.headRotationStopTimeMs
             )
 
             if (obstacleAlert != null) {
-                navigationCoordinator.recordObstacleAlerted(imuSnap, dObj, physics.dynamicThresholdT)
+                navigationCoordinator.recordObstacleAlerted(imuSnap, obstacleDistanceMm, physics.adaptiveThresholdMm)
                 ttsAlertManager.speak(obstacleAlert)
                 _ttsTextFlow.value = obstacleAlert
             }
@@ -831,11 +831,11 @@ class StreamService : Service() {
                 val mBuffer = imuSnap?.getOrElse(5) { 0f }?.times(200f) ?: 0f
                 val sessionFrame = SessionFrame(
                     timestampMs    = System.currentTimeMillis(),
-                    dObjMm         = dObj,
-                    vRawMmps       = physics.vRaw,
-                    vAvgMmps       = physics.vAvg,
-                    mBufferMm      = (imuSnap?.getOrElse(5) { 0f } ?: 0f) * 200f,
-                    thresholdT     = physics.dynamicThresholdT,
+                    obstacleDistanceMm         = obstacleDistanceMm,
+                    rawApproachVelocityMmps       = physics.rawApproachVelocityMmps,
+                    emaApproachVelocityMmps       = physics.emaApproachVelocityMmps,
+                    momentumBufferMm      = (imuSnap?.getOrElse(5) { 0f } ?: 0f) * 200f,
+                    adaptiveThresholdMm     = physics.adaptiveThresholdMm,
                     alertTriggered = obstacleAlert != null,
                     alertText      = obstacleAlert ?: "",
                     latencyHwMs    = LATENCY_HW_PING,

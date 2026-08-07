@@ -31,7 +31,15 @@ class TtsAlertManager(private val context: Context) {
     companion object {
         private const val TAG = "TtsAlertManager"
 
-        const val D_W0      = 1000
+        /**
+         * D_W0: Nilai inisialisasi awal (seed) untuk lastCalculatedT sebelum data IMU
+         * tersedia. Nilainya SAMA dengan baseWarningDistanceMm di NavigationCoordinator (1200 mm =
+         * jarak ergonomi tongkat putih, basis komponen d_0 dalam formula Dynamic Threshold).
+         *
+         * Catatan: Konstanta ini TIDAK dipakai di dalam kalkulasi formula adaptiveThresholdMm —
+         * hanya sebagai fallback display selama ~2.5 detik warmup Mahony AHRS.
+         */
+        const val D_W0 = 1200  // mm — selaras dengan baseWarningDistanceMm di NavigationCoordinator
 
         const val EPS_NOISE      = 500
         const val EPS_CLEAR_ZONE = 150
@@ -151,13 +159,13 @@ class TtsAlertManager(private val context: Context) {
 
     /** Memproses data/input terbaru untuk menjalankan pipeline utama. */
     fun process(
-        dObj: Int,
+        obstacleDistanceMm: Int,
         clockDirection: Int,
         objectLabel: String = "rintangan",
         isMovingForward: Boolean = true,
         isStationary: Boolean = false,
-        vAvg: Float,
-        T: Int,
+        emaApproachVelocityMmps: Float,
+        adaptiveThresholdMm: Int,
         isAlertPermitted: Boolean,
         isSameSemanticState: Boolean = false,
         headRotationStopTimeMs: Long = 0L
@@ -170,23 +178,23 @@ class TtsAlertManager(private val context: Context) {
         val alreadyAlerted = alertFlag
         val now = System.currentTimeMillis()
 
-        lastCalculatedT = T
+        lastCalculatedT = adaptiveThresholdMm
 
-        val finalLabel = if (vAvg > 500f) {
+        val finalLabel = if (emaApproachVelocityMmps > 500f) {
             if (isMovingForward) "mendekati $objectLabel" else "$objectLabel mendekat"
         } else objectLabel
         val dirText  = SpatialMappingUtils.clockDirectionToTts(clockDirection)
 
         val distText = when {
-            dObj < T * 0.5 -> "jarak dekat"
-            dObj < T * 1.5 -> "jarak sedang"
+            obstacleDistanceMm < adaptiveThresholdMm * 0.5 -> "jarak dekat"
+            obstacleDistanceMm < adaptiveThresholdMm * 1.5 -> "jarak sedang"
             else -> "jarak jauh"
         }
 
         val textToSpeak = "$finalLabel, $distText, $dirText"
 
         return when {
-            dObj < T && !alreadyAlerted -> {
+            obstacleDistanceMm < adaptiveThresholdMm && !alreadyAlerted -> {
 
                 if (!isAlertPermitted) return null
 
@@ -202,10 +210,10 @@ class TtsAlertManager(private val context: Context) {
                 alertFlag = true
                 resetDebounceFrames = 0
                 lastSpokenTime = now
-                Log.d(TAG, "One-shot triggered: d=${dObj}mm dir=$clockDirection")
+                Log.d(TAG, "One-shot triggered: d=${obstacleDistanceMm}mm dir=$clockDirection")
                 textToSpeak
             }
-            dObj < T && alreadyAlerted -> {
+            obstacleDistanceMm < adaptiveThresholdMm && alreadyAlerted -> {
                 resetDebounceFrames = 0
                 val lastSpoken = lastSpokenTime
 
@@ -227,24 +235,24 @@ class TtsAlertManager(private val context: Context) {
                 }
 
                 // 2. User diam (stationary), tetapi ada objek dinamis mendekat dengan cepat
-                if (isStationary && vAvg > 200f) {
+                if (isStationary && emaApproachVelocityMmps > 200f) {
                     if (now - lastSpoken > 3000L) {
                         lastSpokenTime = now
-                        Log.d(TAG, "Stationary Approaching Object Alert (vAvg=$vAvg)")
+                        Log.d(TAG, "Stationary Approaching Object Alert (emaApproachVelocityMmps=$emaApproachVelocityMmps)")
                         return textToSpeak
                     }
                 }
 
                 null
             }
-            dObj > T + EPS_NOISE && alreadyAlerted -> {
+            obstacleDistanceMm > adaptiveThresholdMm + EPS_NOISE && alreadyAlerted -> {
 
                 if (isAlertPermitted) {
                     resetDebounceFrames++
                     if (resetDebounceFrames >= 10) {
                         alertFlag = false
                         resetDebounceFrames = 0
-                        Log.d(TAG, "Flag reset (D_RESET): d=${dObj}mm")
+                        Log.d(TAG, "Flag reset (D_RESET): d=${obstacleDistanceMm}mm")
                         speakQueue("Jalan di depan kosong")
                     }
                 } else {
