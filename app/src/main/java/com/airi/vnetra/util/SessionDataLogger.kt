@@ -133,6 +133,8 @@ class SessionDataLogger(context: Context) {
             Log.i(TAG, "SessionDataLogger closed. Total frames: $frameCount")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to close SessionDataLogger", e)
+        } finally {
+            csvWriter = null  // BUG-02 fix: null setelah close agar record() tidak IOException
         }
     }
 }

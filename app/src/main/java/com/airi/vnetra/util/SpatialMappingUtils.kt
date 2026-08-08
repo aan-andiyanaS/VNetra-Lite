@@ -37,7 +37,7 @@ object SpatialMappingUtils {
     fun getHoldoverFrames(): IntArray = holdoverFrames
 
     data class ObstacleAnalysis(
-        val type: String,       // "tembok" atau "halangan"
+        val type: String,       // "tembok" atau "objek"
         val clockDirection: Int, // Arah jam (10, 11, 12, 1, 2)
         val nearestDistance: Int // Jarak terdekat absolut (mm)
     )
@@ -74,8 +74,9 @@ object SpatialMappingUtils {
         if (tofData.size != 64) return null
 
         var nearestDist = Int.MAX_VALUE
+        var nearestCol  = 4  // default tengah; diperbarui saat sel terdekat ditemukan
         
-        // 1. Update EMA & cari nearestDist dalam 1 pass (O(N))
+        // 1. Update EMA & cari nearestDist + nearestCol dalam 1 pass (O(N))
         for (i in 0..63) {
             val rawDist = tofData[i]
             if (rawDist < 0) {
@@ -103,22 +104,21 @@ object SpatialMappingUtils {
 
             if (dist in CLOSE_DIST_MIN..CLOSE_DIST_MAX && dist < nearestDist) {
                 nearestDist = dist
+                nearestCol  = i % 8  // rekam kolom sel terdekat
             }
         }
 
         if (nearestDist == Int.MAX_VALUE) return null
 
-        // 2. Isolasi area bahaya (toleransi 300mm) & hitung centroid tanpa alokasi (List/Set)
+        // 2. Isolasi area bahaya (toleransi 300mm) — hitung rowMask untuk klasifikasi tipe
         var rowMask = 0
-        var sumCol = 0
-        var count = 0
+        var count   = 0
 
         val maxDangerDist = nearestDist + 300
         for (i in 0..63) {
             val d = emaDistances[i].toInt()
             if (d in CLOSE_DIST_MIN..maxDangerDist) {
                 rowMask = rowMask or (1 shl (i / 8))
-                sumCol += (i % 8)
                 count++
             }
         }
@@ -128,11 +128,12 @@ object SpatialMappingUtils {
         // 3. Syarat tembok: area bahaya membentang vertikal minimal 4 baris
         val distinctRowsCount = Integer.bitCount(rowMask)
         val isWall = distinctRowsCount >= 4
-        val type = if (isWall) "tembok" else "halangan"
+        val type = if (isWall) "tembok" else "objek"
 
-        // 4. Tentukan arah jam via centroid kolom
-        val centroidCol = (sumCol.toFloat() / count).roundToInt().coerceIn(0, 7)
-        val clockDir = getColumnClockDirection(centroidCol)
+        // 4. Arah jam dari kolom SEL TERDEKAT, bukan centroid rata-rata.
+        // Centroid bisa menunjuk berlawanan dari bahaya nyata pada obstacle diagonal/multi-titik.
+        // Sel terdekat = titik paling kritis untuk navigasi → selalu prioritaskan arahnya.
+        val clockDir = getColumnClockDirection(nearestCol)
 
         return ObstacleAnalysis(type, clockDir, nearestDist)
     }

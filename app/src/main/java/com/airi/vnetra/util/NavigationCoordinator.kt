@@ -48,9 +48,9 @@ class NavigationCoordinator {
     private fun extractFilteredRates(imuData: FloatArray?): Triple<Float, Float, Float> {
         fun Float.denoised() = if (abs(this) < 4.0f) 0f else this
         return Triple(
-            (imuData?.getOrElse(3) { 0f } ?: 0f).denoised(), // pitchRate
-            (imuData?.getOrElse(2) { 0f } ?: 0f).denoised(), // rollRate
-            (imuData?.getOrElse(4) { 0f } ?: 0f).denoised()  // yawRate
+            (imuData?.getOrElse(2) { 0f } ?: 0f).denoised(), // pitchRate = wx_corr_deg = [2] (angguk maju/mundur)
+            (imuData?.getOrElse(3) { 0f } ?: 0f).denoised(), // rollRate  = wy_corr_deg = [3] (miring kiri/kanan)
+            (imuData?.getOrElse(4) { 0f } ?: 0f).denoised()  // yawRate   = wz_corr_deg = [4] (menoleh) ✓
         )
     }
 
@@ -87,7 +87,8 @@ class NavigationCoordinator {
     // --- Physics State ---
     private var prevObstacleDistanceMm: Int? = null
     private var prevEspTimestampMs: Float? = null
-    private var smoothedObstacleDistanceMm: Float = -1f  // EWMA sekunder pada obstacleDistanceMm sebelum diferensiasi
+    // ponytail: EMA-A di SpatialMappingUtils (α=0.45) sudah memfilter noise per-sel ToF.
+    // EMA-B sekunder di sini dihapus karena hanya menambah phase lag ~62ms tanpa manfaat.
     private var emaVelocityStateMmps: Float = 0f         // EWMA pada output rawApproachVelocityMmps (lebih stabil dari 3-avg)
     private var lastVRaw: Float = 0f        // rawApproachVelocityMmps per-frame terakhir SEBELUM EWMA
     var lastCalculatedT: Int = 1200
@@ -105,7 +106,9 @@ class NavigationCoordinator {
     private var lastAlertPitch: Float = Float.MAX_VALUE
     private var lastAlertRoll:  Float = Float.MAX_VALUE
     private var lastAlertZone:  Int   = ZONE_JAUH
-    
+    // ponytail: track jarak absolut saat alert terakhir; dipakai untuk deteksi kemajuan user (>80mm = state baru).
+    private var lastAlertObstacleDistanceMm: Int = Int.MAX_VALUE
+
     // Invalidator Fisika (Pure Physics Invalidator)
     private var accumulatedYawSinceAlert: Float = 0f
     private var openSpaceWalkFrames: Int = 0
@@ -122,9 +125,10 @@ class NavigationCoordinator {
         lastAlertPitch = imuData?.getOrElse(0) { Float.MAX_VALUE } ?: Float.MAX_VALUE
         lastAlertRoll  = imuData?.getOrElse(1) { Float.MAX_VALUE } ?: Float.MAX_VALUE
         lastAlertZone  = getDistanceZone(obstacleDistanceMm, adaptiveThresholdMm)
+        lastAlertObstacleDistanceMm = obstacleDistanceMm
         accumulatedYawSinceAlert = 0f
         openSpaceWalkFrames = 0
-        Log.d("NavCoord", "Obstacle alerted memory: pitch=$lastAlertPitch roll=$lastAlertRoll zone=$lastAlertZone")
+        Log.d("NavCoord", "Obstacle alerted memory: pitch=$lastAlertPitch roll=$lastAlertRoll zone=$lastAlertZone dist=${obstacleDistanceMm}mm")
     }
 
     /**
@@ -135,6 +139,7 @@ class NavigationCoordinator {
         lastAlertPitch = Float.MAX_VALUE
         lastAlertRoll  = Float.MAX_VALUE
         lastAlertZone  = ZONE_JAUH
+        lastAlertObstacleDistanceMm = Int.MAX_VALUE
         accumulatedYawSinceAlert = 0f
         openSpaceWalkFrames = 0
     }
@@ -144,19 +149,19 @@ class NavigationCoordinator {
      * terhadap pengguna, kecepatan langkah (momentum), dan kompensasi ayunan kepala.
      *
      * Formula (Dynamic Threshold berbasis Stopping Sight Distance / SSD):
-     *   T = min(4000, baseWarningDistanceMm + (emaApproachVelocityMmps * tR) + (a_lin * K_INERSIA))
+     *   T = min(4000, d0 + (v_rel * t_r) + d_B)
      *
      * di mana:
-     *   baseWarningDistanceMm      = jarak ergonomi tongkat putih (baseline d_0) = 1200 mm
-     *   emaApproachVelocityMmps      = kecepatan pendekatan relatif terfilter EWMA (mm/s)
-     *   tR        = Perception-Reaction Time AASHTO = 2.5 detik
-     *   K_INERSIA = koefisien buffer momentum biomekanis = 200 (≈ ½ × 9810 × 0.2²)
+     *   d0  = jarak aman minimum absolut = 1000 mm (batas peringatan 1 meter lazim)
+     *   v_rel = kecepatan pendekatan relatif terfilter EWMA (mm/s)
+     *   t_r = Perception-Reaction Time pejalan kaki ETA [Kovács & Nagy, 2020] = 1.3 detik
+     *   d_B = Braking Distance biomekanis (½ × a_lin × t_step²)
      */
     fun calculateDynamicThreshold(
         obstacleDistanceMm: Int,
         objectLabel: String,
         imuData: FloatArray?,
-        baseWarningDistanceMm: Int = 1200  // mm — jarak ergonomi tongkat putih (d_0 dalam formula SSD)
+        baseWarningDistanceMm: Int = 1000  // mm — batas peringatan 1 meter (d_0 dalam formula SSD)
     ): ObstaclePhysics {
 
         var emaApproachVelocityMmps = 0f
@@ -175,12 +180,9 @@ class NavigationCoordinator {
                 val dPrev = prevObstacleDistanceMm
                 val tsPrev = prevEspTimestampMs
 
-                // EMA sekunder pada obstacleDistanceMm: alpha=0.4 → tau≈60ms at 40Hz.
-                // Mengurangi noise "nearestDist" yang bisa lompat antar sel setiap frame.
-                // Reset ke obstacleDistanceMm asli jika belum pernah ada data atau obstacle hilang.
-                smoothedObstacleDistanceMm = if (smoothedObstacleDistanceMm < 0f) obstacleDistanceMm.toFloat()
-                               else (0.4f * obstacleDistanceMm) + (0.6f * smoothedObstacleDistanceMm)
-                val dSmooth = smoothedObstacleDistanceMm.toInt()
+                // ponytail: gunakan obstacleDistanceMm langsung — EMA-A di SpatialMappingUtils sudah menyaring noise.
+                // EMA sekunder dihapus untuk mengurangi phase lag pada deteksi kecepatan pendekatan.
+                val dSmooth = obstacleDistanceMm
 
                 if (dPrev != null && tsPrev != null && tsEsp != tsPrev) {
                     var dt = (tsEsp - tsPrev) / 1000f
@@ -196,13 +198,22 @@ class NavigationCoordinator {
                     val rawApproachVelocityMmps = if (kotlin.math.abs(dDelta) < 15) 0f
                                else ((dDelta / dt) - kotlin.math.abs(vHead)).coerceIn(0f, 2000f)
 
-                    // EWMA pada rawApproachVelocityMmps: alpha=0.4 → tiap spike baru hanya berkontribusi 40%.
-                    // Lebih stabil dari 3-sample average sekaligus tetap responsif.
-                    emaVelocityStateMmps = (0.4f * rawApproachVelocityMmps) + (0.6f * emaVelocityStateMmps)
-                    emaApproachVelocityMmps = emaVelocityStateMmps
-                    lastVRaw = rawApproachVelocityMmps
+                    // Spike Rejection: jika raw velocity melonjak >800mm/s di atas EMA saat ini
+                    // dalam satu frame ToF, anggap sebagai objek transient (tangan/benda sekilas lewat)
+                    // dan abaikan frame tersebut — EMA tidak diperbarui dari nilai spike.
+                    // Threshold 800mm/s dipilih karena: pendekatan nyata <500mm/s per-frame @15Hz,
+                    // sedangkan spike transient selalu >1000mm/s.
+                    val velocityJump = rawApproachVelocityMmps - emaVelocityStateMmps
+                    val filteredVelocity = if (velocityJump > 800f) emaVelocityStateMmps else rawApproachVelocityMmps
 
-                    val humanReactionTimeSec = 2.5f // Waktu reaksi manusia (TTC) berdasarkan AASHTO Stopping Sight Distance
+                    // EWMA pada filteredVelocity: alpha=0.4 → tiap spike baru hanya berkontribusi 40%.
+                    // Lebih stabil dari 3-sample average sekaligus tetap responsif.
+                    emaVelocityStateMmps = (0.4f * filteredVelocity) + (0.6f * emaVelocityStateMmps)
+                    emaApproachVelocityMmps = emaVelocityStateMmps
+                    lastVRaw = rawApproachVelocityMmps  // simpan raw untuk logging CSV, bukan filteredVelocity
+
+                    // ponytail: 1.3s = midpoint [1.1, 1.5] dari Kovács & Nagy [44]; AASHTO 2.5s adalah untuk kendaraan.
+                    val perceptionReactionTimeSec = 1.3f
                     
                     // --- Kalkulasi Momentum Buffer (Hukum Kinematika Newton) ---
                     // linearAccelMmps2: Akselerasi dari sensor (m/s^2) dikonversi ke (mm/s^2)
@@ -211,7 +222,7 @@ class NavigationCoordinator {
                     // Jarak Lunge = 1/2 * a * t^2
                     val momentumBufferMm = 0.5f * linearAccelMmps2 * (tStep * tStep) 
                     
-                    adaptiveThresholdMm = (baseWarningDistanceMm + (emaApproachVelocityMmps * humanReactionTimeSec) + momentumBufferMm).toInt()
+                    adaptiveThresholdMm = (baseWarningDistanceMm + (emaApproachVelocityMmps * perceptionReactionTimeSec) + momentumBufferMm).toInt()
                     if (adaptiveThresholdMm > 4000) adaptiveThresholdMm = 4000
 
                     // 1. Integrasi Relative Yaw Compass (Rotational Shift)
@@ -235,7 +246,10 @@ class NavigationCoordinator {
         wasHeadRotating = isHeadRotatingNow
 
         val isStaticObst = objectLabel == "tembok"
-        val isAlertPermitted = !isHeadRotatingNow && !isRestingMode && !(isStaticObst && pitchAngle > 20f)
+        // BUG-08 fix: pitch gate berlaku untuk semua tipe objek (bukan hanya "tembok").
+        // Threshold 25° dipilih: menunduk natural berjalan (<20°) tidak memblokir,
+        // menunduk aktif melihat lantai (>25°) memblokir semua alert termasuk "objek".
+        val isAlertPermitted = !isHeadRotatingNow && !isRestingMode && !(pitchAngle > 25f)
 
         // 2. Evaluasi Pedometer Ruang Terbuka (Translational Shift)
         val aLin = imuData?.getOrElse(5) { 0f } ?: 0f
@@ -256,10 +270,14 @@ class NavigationCoordinator {
             abs(accumulatedYawSinceAlert)    < currentHeadThreshold
 
         val currentZone = getDistanceZone(obstacleDistanceMm, adaptiveThresholdMm)
-        
-        // isSameSemanticState = TRUE jika orientasi 3D kepala sama (termasuk yaw), 
+
+        // isSameSemanticState = TRUE jika orientasi 3D kepala sama (termasuk yaw),
         // rintangan tidak mendekat, dan belum berjalan jauh di ruang kosong.
-        val isSameSemanticState = isTranslationallyValid && headingUnchanged && (currentZone >= lastAlertZone)
+        // ponytail: 80mm ≈ 1 pijakan kaki; jika user maju sejauh ini sejak alert terakhir, anggap situasi baru.
+        val distanceDecreasedSignificantly = lastAlertObstacleDistanceMm - obstacleDistanceMm > 80
+        val isSameSemanticState = isTranslationallyValid && headingUnchanged
+                                  && (currentZone >= lastAlertZone)
+                                  && !distanceDecreasedSignificantly
 
         return ObstaclePhysics(lastVRaw, emaApproachVelocityMmps, adaptiveThresholdMm, isAlertPermitted, isSameSemanticState)
     }
@@ -267,16 +285,14 @@ class NavigationCoordinator {
     fun resetPhysics() {
         prevObstacleDistanceMm = null
         prevEspTimestampMs = null
-        smoothedObstacleDistanceMm = -1f
         emaVelocityStateMmps = 0f
         lastVRaw = 0f
         lastCalculatedT = 1200
         clearObstacleMemory()
     }
 
-    /** Dipanggil saat tidak ada obstacle terdeteksi, agar EWMA tidak tercemar nilai fallback 2500. */
+    /** Dipanggil saat tidak ada obstacle terdeteksi, agar EWMA velocity tidak tercemar nilai fallback 2500. */
     fun resetDObjSmoothed() {
-        smoothedObstacleDistanceMm = -1f
         emaVelocityStateMmps = 0f
         lastVRaw = 0f
     }

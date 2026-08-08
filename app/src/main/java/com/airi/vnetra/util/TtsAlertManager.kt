@@ -33,13 +33,13 @@ class TtsAlertManager(private val context: Context) {
 
         /**
          * D_W0: Nilai inisialisasi awal (seed) untuk lastCalculatedT sebelum data IMU
-         * tersedia. Nilainya SAMA dengan baseWarningDistanceMm di NavigationCoordinator (1200 mm =
+         * tersedia. Nilainya SAMA dengan baseWarningDistanceMm di NavigationCoordinator (1000 mm =
          * jarak ergonomi tongkat putih, basis komponen d_0 dalam formula Dynamic Threshold).
          *
          * Catatan: Konstanta ini TIDAK dipakai di dalam kalkulasi formula adaptiveThresholdMm —
          * hanya sebagai fallback display selama ~2.5 detik warmup Mahony AHRS.
          */
-        const val D_W0 = 1200  // mm — selaras dengan baseWarningDistanceMm di NavigationCoordinator
+        const val D_W0 = 1000  // mm — selaras dengan baseWarningDistanceMm di NavigationCoordinator
 
         const val EPS_NOISE      = 500
         const val EPS_CLEAR_ZONE = 150
@@ -205,6 +205,12 @@ class TtsAlertManager(private val context: Context) {
                     return null
                 }
 
+                // ponytail: blok alert pertama jika user diam & tidak ada objek yang benar-benar mendekat.
+                if (isStationary && emaApproachVelocityMmps < 80f) {
+                    Log.d(TAG, "Muted: stationary user, no approaching object (ema=${emaApproachVelocityMmps}mm/s)")
+                    return null
+                }
+
                 if (isMuted) return null
 
                 alertFlag = true
@@ -225,11 +231,12 @@ class TtsAlertManager(private val context: Context) {
                     return textToSpeak
                 }
 
-                // 1. User bergerak maju terus menerus di zona yang sama: Peringatkan setiap 2.5 detik (Heartbeat)
-                if (isMovingForward) {
+                // 1. User bergerak maju atau sensor ToF mendeteksi objek mendekat: Peringatkan setiap 2.5 detik (Heartbeat)
+                // ponytail: fallback ke ema > 80f jika IMU tidak deteksi langkah (jalan pelan/karpet).
+                if (isMovingForward || emaApproachVelocityMmps > 80f) {
                     if (now - lastSpoken > 2500L) {
                         lastSpokenTime = now
-                        Log.d(TAG, "Moving Alert Update")
+                        Log.d(TAG, "Heartbeat alert: isMovingForward=$isMovingForward ema=${emaApproachVelocityMmps}mm/s")
                         return textToSpeak
                     }
                 }
