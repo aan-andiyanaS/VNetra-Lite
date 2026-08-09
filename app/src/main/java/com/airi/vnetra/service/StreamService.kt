@@ -47,6 +47,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import com.airi.vnetra.util.NavigationCoordinator
 import com.airi.vnetra.util.TtsAlertManager
 import com.airi.vnetra.util.SpatialMappingUtils
+import com.airi.vnetra.util.VNetraConfig
 import kotlinx.coroutines.flow.combine
 
 import kotlinx.coroutines.isActive
@@ -87,7 +88,7 @@ class StreamService : Service() {
         private const val LATENCY_HW_PING = 15L
         private const val LATENCY_ALGO_PING = 5L // Fast geometric algorithm
 
-        const val EXTRA_IP    = "esp32_ip"
+        const val EXTRA_IP    = VNetraConfig.KEY_ESP32_IP
         const val ACTION_STOP     = "com.airi.vnetra.ACTION_STOP"
         const val ACTION_EXIT_APP = "com.airi.vnetra.ACTION_EXIT_APP"
 
@@ -827,14 +828,16 @@ class StreamService : Service() {
             if (_connectionState.value == ConnectionState.CONNECTED &&
                 ::sessionDataLogger.isInitialized
             ) {
-                // M_buffer = imuData[5] * 200f (momentum buffer, sesuai NavigationCoordinator)
-                val mBuffer = imuSnap?.getOrElse(5) { 0f }?.times(200f) ?: 0f
+                // momentumBufferMm = 0.5 * (accel m/s^2 * 1000) * STEP_DURATION_SEC^2
+                // Selaras dengan NavigationCoordinator formula — satu source di VNetraConfig.
+                val accelMmps2 = (imuSnap?.getOrElse(5) { 0f } ?: 0f) * 1000f
+                val mBufferLogged = 0.5f * accelMmps2 * (VNetraConfig.STEP_DURATION_SEC * VNetraConfig.STEP_DURATION_SEC)
                 val sessionFrame = SessionFrame(
                     timestampMs    = System.currentTimeMillis(),
                     obstacleDistanceMm         = obstacleDistanceMm,
                     rawApproachVelocityMmps       = physics.rawApproachVelocityMmps,
                     emaApproachVelocityMmps       = physics.emaApproachVelocityMmps,
-                    momentumBufferMm      = (imuSnap?.getOrElse(5) { 0f } ?: 0f) * 200f,
+                    momentumBufferMm      = mBufferLogged,
                     adaptiveThresholdMm     = physics.adaptiveThresholdMm,
                     alertTriggered = obstacleAlert != null,
                     alertText      = obstacleAlert ?: "",

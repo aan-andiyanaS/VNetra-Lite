@@ -56,12 +56,10 @@ import androidx.core.view.WindowInsetsCompat
 class StreamActivity : AppCompatActivity() {
 
     companion object {
-        private const val EXTRA_IP = "esp32_ip"
-
         /** Membuat intent terkonfigurasi untuk berpindah ke Activity ini. */
         fun createIntent(context: Context, ipAddress: String): Intent =
             Intent(context, StreamActivity::class.java).apply {
-                putExtra(EXTRA_IP, ipAddress)
+                putExtra(StreamService.EXTRA_IP, ipAddress)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
     }
@@ -161,7 +159,7 @@ class StreamActivity : AppCompatActivity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        ipAddress = intent.getStringExtra(EXTRA_IP) ?: run {
+        ipAddress = intent.getStringExtra(StreamService.EXTRA_IP) ?: run {
             Toast.makeText(this, "IP address tidak ditemukan", Toast.LENGTH_SHORT).show()
             finish()
             return
@@ -251,7 +249,7 @@ class StreamActivity : AppCompatActivity() {
     /** Menerima intent baru saat Activity sudah terbuka, untuk memperbarui alamat IP. */
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        val newIp = intent?.getStringExtra(EXTRA_IP)
+        val newIp = intent?.getStringExtra(StreamService.EXTRA_IP)
         if (!newIp.isNullOrEmpty() && newIp != ipAddress) {
             ipAddress = newIp
             supportActionBar?.title = "VNetra Stream — $ipAddress"

@@ -39,10 +39,11 @@ class TtsAlertManager(private val context: Context) {
          * Catatan: Konstanta ini TIDAK dipakai di dalam kalkulasi formula adaptiveThresholdMm —
          * hanya sebagai fallback display selama ~2.5 detik warmup Mahony AHRS.
          */
-        const val D_W0 = 1000  // mm — selaras dengan baseWarningDistanceMm di NavigationCoordinator
+        /** Seed awal lastCalculatedT sebelum IMU tersedia — sama dengan BASE_WARNING_DIST_MM. */
+        const val D_W0          = VNetraConfig.BASE_WARNING_DIST_MM
 
-        const val EPS_NOISE      = 500
-        const val EPS_CLEAR_ZONE = 150
+        const val EPS_NOISE      = VNetraConfig.ALERT_EPS_NOISE_MM
+        const val EPS_CLEAR_ZONE = VNetraConfig.ALERT_EPS_CLEAR_ZONE_MM
     }
 
     @Volatile private var alertFlag: Boolean = false

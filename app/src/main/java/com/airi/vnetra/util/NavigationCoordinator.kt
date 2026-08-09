@@ -10,12 +10,12 @@ package com.airi.vnetra.util
 
 import kotlin.math.abs
 import android.util.Log
+import com.airi.vnetra.util.VNetraConfig
 
 class NavigationCoordinator {
 
     companion object {
-        /** Batas perubahan sudut kepala (Mahony) sebelum dianggap arah yang berbeda. */
-        private const val HEAD_ROTATION_THRESHOLD = 25f
+        // ponytail: konstanta dipindah ke VNetraConfig — tidak ada duplikat di sini.
 
         // Semantic Zones
         const val ZONE_DEKAT = 1
@@ -26,8 +26,8 @@ class NavigationCoordinator {
     /** Menentukan zona semantik dari jarak berdasarkan ambang batas dinamis (adaptiveThresholdMm). */
     fun getDistanceZone(obstacleDistanceMm: Int, adaptiveThresholdMm: Int): Int {
         return when {
-            obstacleDistanceMm < adaptiveThresholdMm * 0.5 -> ZONE_DEKAT
-            obstacleDistanceMm < adaptiveThresholdMm * 1.5 -> ZONE_SEDANG
+            obstacleDistanceMm < adaptiveThresholdMm * VNetraConfig.ZONE_NEAR_MULT -> ZONE_DEKAT
+            obstacleDistanceMm < adaptiveThresholdMm * VNetraConfig.ZONE_MID_MULT  -> ZONE_SEDANG
             else -> ZONE_JAUH
         }
     }
@@ -46,7 +46,7 @@ class NavigationCoordinator {
 
     /** Helper: mengekstrak laju rotasi IMU (pitch/roll/yaw) dengan noise gate 4°/s. */
     private fun extractFilteredRates(imuData: FloatArray?): Triple<Float, Float, Float> {
-        fun Float.denoised() = if (abs(this) < 4.0f) 0f else this
+        fun Float.denoised() = if (abs(this) < VNetraConfig.IMU_NOISE_GATE_DEG_PER_SEC) 0f else this
         return Triple(
             (imuData?.getOrElse(2) { 0f } ?: 0f).denoised(), // pitchRate = wx_corr_deg = [2] (angguk maju/mundur)
             (imuData?.getOrElse(3) { 0f } ?: 0f).denoised(), // rollRate  = wy_corr_deg = [3] (miring kiri/kanan)
@@ -91,7 +91,7 @@ class NavigationCoordinator {
     // EMA-B sekunder di sini dihapus karena hanya menambah phase lag ~62ms tanpa manfaat.
     private var emaVelocityStateMmps: Float = 0f         // EWMA pada output rawApproachVelocityMmps (lebih stabil dari 3-avg)
     private var lastVRaw: Float = 0f        // rawApproachVelocityMmps per-frame terakhir SEBELUM EWMA
-    var lastCalculatedT: Int = 1200
+    var lastCalculatedT: Int = VNetraConfig.BASE_WARNING_DIST_MM
         private set
 
     data class ObstaclePhysics(
@@ -161,7 +161,7 @@ class NavigationCoordinator {
         obstacleDistanceMm: Int,
         objectLabel: String,
         imuData: FloatArray?,
-        baseWarningDistanceMm: Int = 1000  // mm — batas peringatan 1 meter (d_0 dalam formula SSD)
+        baseWarningDistanceMm: Int = VNetraConfig.BASE_WARNING_DIST_MM
     ): ObstaclePhysics {
 
         var emaApproachVelocityMmps = 0f
@@ -174,7 +174,7 @@ class NavigationCoordinator {
             // isConverged = flag warmup Mahony AHRS dari firmware ESP32.
             // Bernilai 0.0 selama 100 frame pertama (~2.5 detik pada 40 Hz kirim),
             // lalu 1.0 saat filter sudah stabil. Selama periode ini emaApproachVelocityMmps dan adaptiveThresholdMm
-            // tidak dihitung (fallback ke baseWarningDistanceMm = 1200 mm).
+            // tidak dihitung (fallback ke baseWarningDistanceMm = BASE_WARNING_DIST_MM).
 
             if (isConverged) {
                 val dPrev = prevObstacleDistanceMm
@@ -195,8 +195,8 @@ class NavigationCoordinator {
                     // rawApproachVelocityMmps: kecepatan pendekatan per-frame SEBELUM EWMA — lebih noisy, mencerminkan nilai mentah.
                     // Menggunakan absolute vHead memastikan kompensasi selalu mengurangi (subtract) 
                     // kecepatan palsu terlepas dari polaritas +/- orientasi fisik MPU.
-                    val rawApproachVelocityMmps = if (kotlin.math.abs(dDelta) < 15) 0f
-                               else ((dDelta / dt) - kotlin.math.abs(vHead)).coerceIn(0f, 2000f)
+                    val rawApproachVelocityMmps = if (kotlin.math.abs(dDelta) < VNetraConfig.VELOCITY_MIN_DELTA_MM) 0f
+                               else ((dDelta / dt) - kotlin.math.abs(vHead)).coerceIn(0f, VNetraConfig.VELOCITY_MAX_MMPS)
 
                     // Spike Rejection: jika raw velocity melonjak >800mm/s di atas EMA saat ini
                     // dalam satu frame ToF, anggap sebagai objek transient (tangan/benda sekilas lewat)
@@ -204,30 +204,29 @@ class NavigationCoordinator {
                     // Threshold 800mm/s dipilih karena: pendekatan nyata <500mm/s per-frame @15Hz,
                     // sedangkan spike transient selalu >1000mm/s.
                     val velocityJump = rawApproachVelocityMmps - emaVelocityStateMmps
-                    val filteredVelocity = if (velocityJump > 800f) emaVelocityStateMmps else rawApproachVelocityMmps
+                    val filteredVelocity = if (velocityJump > VNetraConfig.VELOCITY_SPIKE_THRESHOLD_MMPS) emaVelocityStateMmps else rawApproachVelocityMmps
 
-                    // EWMA pada filteredVelocity: alpha=0.4 → tiap spike baru hanya berkontribusi 40%.
+                    // EWMA pada filteredVelocity: VELOCITY_EMA_ALPHA → tiap spike baru hanya berkontribusi alpha%.
                     // Lebih stabil dari 3-sample average sekaligus tetap responsif.
-                    emaVelocityStateMmps = (0.4f * filteredVelocity) + (0.6f * emaVelocityStateMmps)
+                    emaVelocityStateMmps = (VNetraConfig.VELOCITY_EMA_ALPHA * filteredVelocity) + ((1f - VNetraConfig.VELOCITY_EMA_ALPHA) * emaVelocityStateMmps)
                     emaApproachVelocityMmps = emaVelocityStateMmps
                     lastVRaw = rawApproachVelocityMmps  // simpan raw untuk logging CSV, bukan filteredVelocity
 
-                    // ponytail: 1.3s = midpoint [1.1, 1.5] dari Kovács & Nagy [44]; AASHTO 2.5s adalah untuk kendaraan.
-                    val perceptionReactionTimeSec = 1.3f
-                    
+                    // t_r dari Kovacs & Nagy [44]; AASHTO 2.5s untuk kendaraan — tidak berlaku untuk pejalan.
+                    val perceptionReactionTimeSec = VNetraConfig.PERCEPTION_REACTION_TIME_SEC
+
                     // --- Kalkulasi Momentum Buffer (Hukum Kinematika Newton) ---
                     // linearAccelMmps2: Akselerasi dari sensor (m/s^2) dikonversi ke (mm/s^2)
-                    val linearAccelMmps2 = imuData[5] * 1000f 
-                    val tStep = 0.632f // Durasi 1 langkah penuh manusia rata-rata (detik)
-                    // Jarak Lunge = 1/2 * a * t^2
-                    val momentumBufferMm = 0.5f * linearAccelMmps2 * (tStep * tStep) 
+                    val linearAccelMmps2 = imuData[5] * 1000f
+                    // Jarak Lunge = 0.5 * a * t_step^2
+                    val momentumBufferMm = 0.5f * linearAccelMmps2 * (VNetraConfig.STEP_DURATION_SEC * VNetraConfig.STEP_DURATION_SEC)
                     
                     adaptiveThresholdMm = (baseWarningDistanceMm + (emaApproachVelocityMmps * perceptionReactionTimeSec) + momentumBufferMm).toInt()
-                    if (adaptiveThresholdMm > 4000) adaptiveThresholdMm = 4000
+                    if (adaptiveThresholdMm > VNetraConfig.MAX_THRESHOLD_MM) adaptiveThresholdMm = VNetraConfig.MAX_THRESHOLD_MM
 
                     // 1. Integrasi Relative Yaw Compass (Rotational Shift)
                     val yawRate = imuData[4]
-                    val filteredYawRate = if (abs(yawRate) < 4.0f) 0f else yawRate
+                    val filteredYawRate = if (abs(yawRate) < VNetraConfig.IMU_NOISE_GATE_DEG_PER_SEC) 0f else yawRate
                     accumulatedYawSinceAlert += filteredYawRate * dt
                 }
                 prevObstacleDistanceMm = dSmooth
@@ -238,18 +237,19 @@ class NavigationCoordinator {
 
         val pitchAngle = imuData?.getOrElse(0) { 0f } ?: 0f
         val rollAngle  = imuData?.getOrElse(1) { 0f } ?: 0f
-        val isHeadRotatingNow = isHeadRotating(imuData, 45f)
-        
+        val isHeadRotatingNow = isHeadRotating(imuData, VNetraConfig.HEAD_ROTATION_THRESHOLD_DEG)
+
         if (wasHeadRotating && !isHeadRotatingNow) {
             headRotationStopTimeMs = System.currentTimeMillis()
         }
         wasHeadRotating = isHeadRotatingNow
 
-        val isStaticObst = objectLabel == "tembok"
+        @Suppress("UNUSED_VARIABLE")
+        val isStaticObst = objectLabel == "tembok" // ponytail: kept for future zone-specific logic
         // BUG-08 fix: pitch gate berlaku untuk semua tipe objek (bukan hanya "tembok").
-        // Threshold 25° dipilih: menunduk natural berjalan (<20°) tidak memblokir,
-        // menunduk aktif melihat lantai (>25°) memblokir semua alert termasuk "objek".
-        val isAlertPermitted = !isHeadRotatingNow && !isRestingMode && !(pitchAngle > 25f)
+        // PITCH_GATE_DEG: menunduk natural berjalan (<20°) tidak memblokir;
+        // menunduk aktif melihat lantai (>PITCH_GATE_DEG) memblokir semua alert.
+        val isAlertPermitted = !isHeadRotatingNow && !isRestingMode && !(pitchAngle > VNetraConfig.PITCH_GATE_DEG)
 
         // 2. Evaluasi Pedometer Ruang Terbuka (Translational Shift)
         val aLin = imuData?.getOrElse(5) { 0f } ?: 0f
@@ -262,7 +262,7 @@ class NavigationCoordinator {
         // IMU-based Semantic Obstacle Memory: evaluasi Fisika Murni (Tanpa Timer)
         val isTranslationallyValid = openSpaceWalkFrames < 40 // Invalid jika jalan bebas ~2 detik
         val isRestingMode = stationaryFrames > 45
-        val currentHeadThreshold = if (isRestingMode) 180f else HEAD_ROTATION_THRESHOLD
+        val currentHeadThreshold = if (isRestingMode) 180f else VNetraConfig.HEAD_ROTATION_THRESHOLD_DEG.toFloat()
 
         val headingUnchanged = lastAlertPitch != Float.MAX_VALUE &&
             abs(pitchAngle - lastAlertPitch) < currentHeadThreshold &&
@@ -287,7 +287,7 @@ class NavigationCoordinator {
         prevEspTimestampMs = null
         emaVelocityStateMmps = 0f
         lastVRaw = 0f
-        lastCalculatedT = 1200
+        lastCalculatedT = VNetraConfig.BASE_WARNING_DIST_MM
         clearObstacleMemory()
     }
 

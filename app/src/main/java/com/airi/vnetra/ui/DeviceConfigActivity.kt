@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.airi.vnetra.util.SessionManager
+import com.airi.vnetra.util.VNetraConfig
 import android.os.Build
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -72,7 +73,7 @@ class DeviceConfigActivity : AppCompatActivity() {
         val deviceName = intent.getStringExtra("device_name") ?: "Unknown"
         deviceAddress  = intent.getStringExtra("device_address") ?: ""
 
-        esp32IpAddress = intent.getStringExtra("esp32_ip") ?: ""
+        esp32IpAddress = intent.getStringExtra(VNetraConfig.KEY_ESP32_IP) ?: ""
 
         supportActionBar?.title = deviceName
         supportActionBar?.setDisplayHomeAsUpEnabled(true)

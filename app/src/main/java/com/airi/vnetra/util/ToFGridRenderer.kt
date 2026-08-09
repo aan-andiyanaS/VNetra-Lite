@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.widget.GridLayout
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
+import com.airi.vnetra.util.VNetraConfig
 class ToFGridRenderer(
     private val context: Context,
     private val gridLayout: GridLayout
@@ -25,9 +26,6 @@ class ToFGridRenderer(
     private var currentTexts: Array<String> = emptyArray()
     private var currentColors: IntArray = IntArray(0)
 
-    private val HOLDOVER_FRAMES = 5
-    private val TOF_FOV_V = 45f
-    private val FOV_V = 41f
 
     /** Mendapatkan jumlah keseluruhan sel yang membentuk matriks visual ToF. */
     fun getGridSize(): Int = tofViews.size
@@ -39,20 +37,22 @@ class ToFGridRenderer(
 
     /** Menyusun ulang kotak-kotak sel visual UI berdasarkan resolusi terbaru. */
     fun rebuildGrid() {
-        val numCells = 64
+        val dim = VNetraConfig.TOF_GRID_DIM
+        val numCells = dim * dim
         val textSizeSp = 7.5f
         currentTexts = Array(numCells) { "—" }
         currentColors = IntArray(numCells) { colorInvalidCell }
 
         gridLayout.removeAllViews()
-        gridLayout.columnCount = 8
-        gridLayout.rowCount = 8
+        gridLayout.columnCount = dim
+        gridLayout.rowCount = dim
 
         gridLayout.setBackgroundColor(Color.parseColor("#20000000"))
 
         tofViews = Array(numCells) { i ->
-            val row = i / 8
-            val col = i % 8
+            val dim = VNetraConfig.TOF_GRID_DIM
+            val row = i / dim
+            val col = i % dim
             TextView(context).apply {
                 layoutParams = GridLayout.LayoutParams(
                     GridLayout.spec(row, 1f),

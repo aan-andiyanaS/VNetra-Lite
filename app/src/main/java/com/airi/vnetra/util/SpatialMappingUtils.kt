@@ -1,6 +1,7 @@
 package com.airi.vnetra.util
 
 import androidx.annotation.VisibleForTesting
+import com.airi.vnetra.util.VNetraConfig
 import kotlin.math.roundToInt
 
 /**
@@ -15,16 +16,16 @@ object SpatialMappingUtils {
 
     const val WALL_TRACKING_ID = 999
     
-    // Threshold jarak untuk dianggap sebagai ancaman dekat (mm)
-    private const val CLOSE_DIST_MIN = 30
-    private const val CLOSE_DIST_MAX = 4000
+    // Threshold jarak untuk dianggap sebagai ancaman dekat (mm) — dari VNetraConfig
+    private val CLOSE_DIST_MIN = VNetraConfig.TOF_DIST_MIN_MM
+    private val CLOSE_DIST_MAX = VNetraConfig.TOF_DIST_MAX_MM
 
     private val emaDistances = FloatArray(64) { -1f }
     private val holdoverFrames = IntArray(64) { 0 }
-    private const val MAX_HOLDOVER = 5 // approx 333ms at 15 FPS
-    // EMA_ALPHA 0.45: turun dari 0.6 untuk meredam noise per-sel tanpa lag berlebih.
-    // Di 40Hz: tau ≈ 1/(alpha*fps) ≈ 55ms — cukup responsif tapi halus.
-    private const val EMA_ALPHA = 0.45f
+    // TOF_HOLDOVER_FRAMES: approx 333ms at 15 FPS
+    private val MAX_HOLDOVER = VNetraConfig.TOF_HOLDOVER_FRAMES
+    // TOF_EMA_ALPHA 0.45: tau ≈ 55ms @40Hz — responsif tapi halus.
+    private val EMA_ALPHA = VNetraConfig.TOF_EMA_ALPHA
 
     @VisibleForTesting
     @Synchronized

@@ -2,14 +2,15 @@ package com.airi.vnetra.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.airi.vnetra.util.VNetraConfig
 
 class SessionManager(context: Context) {
 
     companion object {
-        private const val PREF_NAME     = "esp32_session"
-        private const val KEY_ESP32_IP  = "esp32_ip"
-        private const val KEY_LAST_MAC  = "last_mac"
-        private const val KEY_LAST_IP   = "last_ip"
+        private const val PREF_NAME    = "esp32_session" // ponytail: local only, not duplicated
+        private val KEY_ESP32_IP = VNetraConfig.KEY_ESP32_IP
+        private val KEY_LAST_MAC = VNetraConfig.KEY_LAST_MAC
+        private val KEY_LAST_IP  = VNetraConfig.KEY_LAST_IP
     }
 
     private val prefs: SharedPreferences =
