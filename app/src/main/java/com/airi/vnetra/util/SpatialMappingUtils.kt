@@ -34,8 +34,8 @@ object SpatialMappingUtils {
         holdoverFrames.fill(0)
     }
 
-    fun getSmoothedDistances(): FloatArray = emaDistances
-    fun getHoldoverFrames(): IntArray = holdoverFrames
+    @Synchronized fun getSmoothedDistances(): FloatArray = emaDistances.clone()
+    @Synchronized fun getHoldoverFrames(): IntArray = holdoverFrames.clone()
 
     data class ObstacleAnalysis(
         val type: String,       // "tembok" atau "objek"
@@ -111,11 +111,14 @@ object SpatialMappingUtils {
 
         if (nearestDist == Int.MAX_VALUE) return null
 
-        // 2. Isolasi area bahaya (toleransi 300mm) — hitung rowMask untuk klasifikasi tipe
+        // BUG-04 fix: gunakan margin proporsional (30% dari nearestDist) bukan +300 konstan.
+        // +300mm terlalu besar saat obstacle jauh (2000+300=2300 — terlalu lebar)
+        // dan terlalu kecil saat obstacle dekat (200+300=500 — masih terlalu lebar).
+        // nearestDist*1.3 selalu proporsional terhadap jarak actual obstacle.
+        val maxDangerDist = (nearestDist * 1.3).toInt()
+        // 2. Isolasi area bahaya — hitung rowMask untuk klasifikasi tipe
         var rowMask = 0
         var count   = 0
-
-        val maxDangerDist = nearestDist + 300
         for (i in 0..63) {
             val d = emaDistances[i].toInt()
             if (d in CLOSE_DIST_MIN..maxDangerDist) {
