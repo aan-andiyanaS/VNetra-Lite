@@ -311,6 +311,26 @@ class StreamActivity : AppCompatActivity() {
         binding.btnAkhiriBadge.setOnClickListener {
             if (!isDestroyed && !isFinishing) konfirmasiAkhiriProses()
         }
+
+        // Ground Truth Marker Buttons
+        val gtButtons = mapOf(
+            binding.btnGt10 to "Jam 10",
+            binding.btnGt11 to "Jam 11",
+            binding.btnGt12 to "Jam 12",
+            binding.btnGt1 to "Jam 1",
+            binding.btnGt2 to "Jam 2",
+            binding.btnGtKosong to "Jalan Kosong"
+        )
+        for ((btn, label) in gtButtons) {
+            btn.setOnClickListener {
+                if (streamService == null) {
+                    Toast.makeText(this, "Service belum terhubung!", Toast.LENGTH_SHORT).show()
+                } else {
+                    streamService?.logTestMarker(label)
+                    Toast.makeText(this, "✅ Marker: $label dicatat!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     @Suppress("ClickableViewAccessibility")

@@ -67,8 +67,17 @@ object SpatialMappingUtils {
      * Menganalisis grid ToF (64 elemen) secara terpusat (Centroid Massa).
      * Jika rintangan membentang vertikal >= 4 baris, diklasifikasikan sebagai "tembok".
      * Arah jam ditentukan oleh pusat massa, dan jarak diambil dari titik terdekat.
-     * 
+     *
      * Refactor: Zero-allocation algorithm menggunakan bitmask dan primitif.
+     *
+     * State machine per sel:
+     *   Jalur A  rawDist < 0         → Sensor dropout (no target/noise). Pertahankan EMA
+     *                                   selama holdoverFrames > 0, lalu hapus.
+     *   Jalur B  rawDist ∈ [MIN,MAX] → Objek dalam zona bahaya. Update EMA, reset holdover.
+     *   Jalur C  rawDist > MAX        → Sensor berhasil mengukur: objek sudah aman/jauh.
+     *                                   Langsung terima data baru, hapus state lama.
+     *                                   Jika user maju lagi dan objek kembali ke zona
+     *                                   bahaya, EMA diinisialisasi cold-start di Jalur B.
      */
     @Synchronized
     fun analyzeTerrain(tofData: IntArray): ObstacleAnalysis? {
@@ -80,27 +89,36 @@ object SpatialMappingUtils {
         // 1. Update EMA & cari nearestDist + nearestCol dalam 1 pass (O(N))
         for (i in 0..63) {
             val rawDist = tofData[i]
-            if (rawDist < 0) {
-                if (holdoverFrames[i] > 0) holdoverFrames[i]-- else emaDistances[i] = -1f
-                continue
-            }
-            
-            val dist = if (rawDist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
+
+            // Jalur A: Sensor dropout (-1 sentinel dari firmware).
+            // Memori EMA dipertahankan selama holdoverFrames > 0 agar alert tidak
+            // terputus karena dropout sesaat (misal: pantulan sudut, tepi FoV).
+            val dist = if (rawDist < 0) {
+                if (holdoverFrames[i] > 0) {
+                    holdoverFrames[i]--
+                    emaDistances[i].toInt() // Memori masih ada, perlakukan sebagai jarak valid!
+                } else {
+                    emaDistances[i] = -1f
+                    continue // Memori habis, lewati sel ini
+                }
+            } else if (rawDist in CLOSE_DIST_MIN..CLOSE_DIST_MAX) {
+                // Jalur B: Objek ADA di zona bahaya → update EMA, reset holdover.
                 holdoverFrames[i] = MAX_HOLDOVER
                 if (emaDistances[i] < 0f) {
-                    emaDistances[i] = rawDist.toFloat()
+                    emaDistances[i] = rawDist.toFloat()      // cold-start
                 } else {
                     emaDistances[i] = (EMA_ALPHA * rawDist) + ((1f - EMA_ALPHA) * emaDistances[i])
                 }
                 emaDistances[i].toInt()
             } else {
-                if (holdoverFrames[i] > 0) {
-                    holdoverFrames[i]--
-                    emaDistances[i].toInt()
-                } else {
-                    emaDistances[i] = -1f
-                    rawDist
-                }
+                // Jalur C: Sensor mengukur jarak valid dan AMAN (objek sudah pergi).
+                // BUG-FIX: Jangan gunakan EMA lama selama holdover — itu menyebabkan
+                // "Ghost Obstacle" (~333ms false alert setelah objek nyata sudah menghilang).
+                // Holdover hanya valid saat sensor DROPOUT (Jalur A), bukan saat sensor
+                // berhasil melaporkan jarak aman secara eksplisit.
+                holdoverFrames[i] = 0
+                emaDistances[i] = -1f
+                rawDist
             }
 
             if (dist in CLOSE_DIST_MIN..CLOSE_DIST_MAX && dist < nearestDist) {

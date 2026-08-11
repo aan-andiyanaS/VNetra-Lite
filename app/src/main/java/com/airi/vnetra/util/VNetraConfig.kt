@@ -1,4 +1,4 @@
-﻿package com.airi.vnetra.util
+package com.airi.vnetra.util
 
 /**
  * VNetraConfig — Single Source of Truth untuk seluruh konstanta sistem VNetra-Lite.
@@ -82,6 +82,9 @@ object VNetraConfig {
     const val ALERT_EPS_CLEAR_ZONE_MM = 150
 
     // ── NETWORK / INTENT KEYS ─────────────────────────────────────────────────
+
+    /** Port UDP untuk menerima payload IMU dan ToF dari ESP32. */
+    const val UDP_PORT = 8080
 
     /** Key Intent/SharedPreferences untuk IP address ESP32. Satu definisi untuk semua file. */
     const val KEY_ESP32_IP = "esp32_ip"

@@ -198,13 +198,15 @@ class NavigationCoordinator {
                     val rawApproachVelocityMmps = if (kotlin.math.abs(dDelta) < VNetraConfig.VELOCITY_MIN_DELTA_MM) 0f
                                else ((dDelta / dt) - kotlin.math.abs(vHead)).coerceIn(0f, VNetraConfig.VELOCITY_MAX_MMPS)
 
-                    // Spike Rejection: jika raw velocity melonjak >800mm/s di atas EMA saat ini
-                    // dalam satu frame ToF, anggap sebagai objek transient (tangan/benda sekilas lewat)
-                    // dan abaikan frame tersebut — EMA tidak diperbarui dari nilai spike.
-                    // Threshold 800mm/s dipilih karena: pendekatan nyata <500mm/s per-frame @15Hz,
-                    // sedangkan spike transient selalu >1000mm/s.
+                    // Spike Rejection via Slew-Rate Limiting: jika raw velocity melonjak >800mm/s 
+                    // terhadap EMA saat ini, kita cap perubahannya, alih-alih mengabaikannya sepenuhnya.
+                    // Ini mencegah "Velocity Lockout" di mana EMA tidak pernah naik jika lonjakan konstan.
                     val velocityJump = rawApproachVelocityMmps - emaVelocityStateMmps
-                    val filteredVelocity = if (velocityJump > VNetraConfig.VELOCITY_SPIKE_THRESHOLD_MMPS) emaVelocityStateMmps else rawApproachVelocityMmps
+                    val filteredVelocity = when {
+                        velocityJump > VNetraConfig.VELOCITY_SPIKE_THRESHOLD_MMPS -> emaVelocityStateMmps + VNetraConfig.VELOCITY_SPIKE_THRESHOLD_MMPS
+                        velocityJump < -VNetraConfig.VELOCITY_SPIKE_THRESHOLD_MMPS -> emaVelocityStateMmps - VNetraConfig.VELOCITY_SPIKE_THRESHOLD_MMPS
+                        else -> rawApproachVelocityMmps
+                    }
 
                     // EWMA pada filteredVelocity: VELOCITY_EMA_ALPHA → tiap spike baru hanya berkontribusi alpha%.
                     // Lebih stabil dari 3-sample average sekaligus tetap responsif.
@@ -215,14 +217,35 @@ class NavigationCoordinator {
                     // t_r dari Kovacs & Nagy [44]; AASHTO 2.5s untuk kendaraan — tidak berlaku untuk pejalan.
                     val perceptionReactionTimeSec = VNetraConfig.PERCEPTION_REACTION_TIME_SEC
 
-                    // --- Kalkulasi Momentum Buffer (Hukum Kinematika Newton) ---
-                    // linearAccelMmps2: Akselerasi dari sensor (m/s^2) dikonversi ke (mm/s^2)
-                    val linearAccelMmps2 = imuData[5] * 1000f
-                    // Jarak Lunge = 0.5 * a * t_step^2
-                    val momentumBufferMm = 0.5f * linearAccelMmps2 * (VNetraConfig.STEP_DURATION_SEC * VNetraConfig.STEP_DURATION_SEC)
+                    // --- Kalkulasi Jarak Berhenti Total (SSD) & Kurva Sigmoid (Tanh) ---
+                    // aLin: Akselerasi perlambatan absolut (mm/s^2)
+                    val aLin = kotlin.math.abs(imuData[5] * 1000f)
+                    val tStep = VNetraConfig.STEP_DURATION_SEC
+                    val tR = perceptionReactionTimeSec
+                    val vAvg = emaApproachVelocityMmps
+
+                    // 1. SSD_raw = v_avg * (t_R + t_step) + 0.5 * |a_lin| * t_step^2
+                    // Menambahkan |a_lin| karena pergerakan kuat (momentum) harus MENINGKATKAN jarak pengereman, bukan menguranginya.
+                    val ssdRaw = vAvg * (tR + tStep) + (0.5f * aLin * (tStep * tStep))
+                    // SSD = max(0, SSD_raw) untuk berjaga-jaga dari nilai negatif
+                    val ssd = kotlin.math.max(0f, ssdRaw)
+
+                    // 2. Normalisasi Rasio (x)
+                    val maxThreshold = VNetraConfig.MAX_THRESHOLD_MM.toFloat()
+                    val baseWarn = baseWarningDistanceMm.toFloat()
+                    val range = maxThreshold - baseWarn
                     
-                    adaptiveThresholdMm = (baseWarningDistanceMm + (emaApproachVelocityMmps * perceptionReactionTimeSec) + momentumBufferMm).toInt()
+                    // x = SSD / (T_max - d_0)
+                    val x = if (range > 0f) ssd / range else 0f
+
+                    // 3. Kalkulasi Batas Akhir (T) dengan fungsi Sigmoid
+                    // T = d_0 + [ (T_max - d_0) * tanh(x) ]
+                    val multiplier = kotlin.math.tanh(x)
+                    adaptiveThresholdMm = (baseWarn + (range * multiplier)).toInt()
+                    
+                    // Clamping untuk keamanan absolut
                     if (adaptiveThresholdMm > VNetraConfig.MAX_THRESHOLD_MM) adaptiveThresholdMm = VNetraConfig.MAX_THRESHOLD_MM
+                    if (adaptiveThresholdMm < baseWarningDistanceMm) adaptiveThresholdMm = baseWarningDistanceMm
 
                     // 1. Integrasi Relative Yaw Compass (Rotational Shift)
                     val yawRate = imuData[4]

@@ -1,0 +1,92 @@
+{
+  "app/build.gradle.kts": {
+    "mtime": 1784981411.8239188,
+    "ast_hash": "c625230704c7253f2df312ea92a04bb7",
+    "semantic_hash": "c625230704c7253f2df312ea92a04bb7"
+  },
+  "app/src/androidTest/java/com/airi/vnetra/ExampleInstrumentedTest.kt": {
+    "mtime": 1784981411.8249178,
+    "ast_hash": "2c069bf2fe91166e271f3f904df33e03",
+    "semantic_hash": "2c069bf2fe91166e271f3f904df33e03"
+  },
+  "app/src/main/java/com/airi/vnetra/MainActivity.kt": {
+    "mtime": 1785080199.6173584,
+    "ast_hash": "b95836e77bf296b0c816b2f0544569e0",
+    "semantic_hash": "b95836e77bf296b0c816b2f0544569e0"
+  },
+  "app/src/main/java/com/airi/vnetra/ble/BleManager.kt": {
+    "mtime": 1784993682.7996871,
+    "ast_hash": "87d9347cc044857b175cde3925684990",
+    "semantic_hash": "87d9347cc044857b175cde3925684990"
+  },
+  "app/src/main/java/com/airi/vnetra/model/WifiInfo.kt": {
+    "mtime": 1784993682.7996871,
+    "ast_hash": "d7f902bfca928644bd34c67dfb8b066e",
+    "semantic_hash": "d7f902bfca928644bd34c67dfb8b066e"
+  },
+  "app/src/main/java/com/airi/vnetra/service/StreamService.kt": {
+    "mtime": 1785740231.585774,
+    "ast_hash": "3168bbf212d4a2357b49fe21b3306643",
+    "semantic_hash": "3168bbf212d4a2357b49fe21b3306643"
+  },
+  "app/src/main/java/com/airi/vnetra/ui/DeviceConfigActivity.kt": {
+    "mtime": 1785080213.6315496,
+    "ast_hash": "157b519f851051a26c47f615f231d90d",
+    "semantic_hash": "157b519f851051a26c47f615f231d90d"
+  },
+  "app/src/main/java/com/airi/vnetra/ui/StreamActivity.kt": {
+    "mtime": 1785392077.4401863,
+    "ast_hash": "1657c30f1703b1d67fab7b7dc72934a7",
+    "semantic_hash": "1657c30f1703b1d67fab7b7dc72934a7"
+  },
+  "app/src/main/java/com/airi/vnetra/util/NavigationCoordinator.kt": {
+    "mtime": 1785903720.3626409,
+    "ast_hash": "c5cb9840cd79d2044173866b1be80e63",
+    "semantic_hash": "c5cb9840cd79d2044173866b1be80e63"
+  },
+  "app/src/main/java/com/airi/vnetra/util/SessionDataLogger.kt": {
+    "mtime": 1785739511.7620418,
+    "ast_hash": "fde0b80f4367ac9186cc26cacd60c438",
+    "semantic_hash": "fde0b80f4367ac9186cc26cacd60c438"
+  },
+  "app/src/main/java/com/airi/vnetra/util/SessionManager.kt": {
+    "mtime": 1784993348.67538,
+    "ast_hash": "3697b094cb55870cf74ff2267b2396ed",
+    "semantic_hash": "3697b094cb55870cf74ff2267b2396ed"
+  },
+  "app/src/main/java/com/airi/vnetra/util/SpatialMappingUtils.kt": {
+    "mtime": 1785846357.4338558,
+    "ast_hash": "316113f0927a9612562cfc886ff31f74",
+    "semantic_hash": "316113f0927a9612562cfc886ff31f74"
+  },
+  "app/src/main/java/com/airi/vnetra/util/ToFGridRenderer.kt": {
+    "mtime": 1785169617.8094313,
+    "ast_hash": "d207e0e473b48289ca60c9c3942111c3",
+    "semantic_hash": "d207e0e473b48289ca60c9c3942111c3"
+  },
+  "app/src/main/java/com/airi/vnetra/util/TtsAlertManager.kt": {
+    "mtime": 1785867433.6522684,
+    "ast_hash": "ded10af42d10eb49d80182fe593f5747",
+    "semantic_hash": "ded10af42d10eb49d80182fe593f5747"
+  },
+  "app/src/test/java/com/airi/vnetra/ExampleUnitTest.kt": {
+    "mtime": 1784981411.9308846,
+    "ast_hash": "a91ac577f9aee283953bf0a6eb8ea64a",
+    "semantic_hash": "a91ac577f9aee283953bf0a6eb8ea64a"
+  },
+  "build.gradle.kts": {
+    "mtime": 1784981411.9318786,
+    "ast_hash": "ccd4f65aeb6639d84be4797087ce886c",
+    "semantic_hash": "ccd4f65aeb6639d84be4797087ce886c"
+  },
+  "gradlew": {
+    "mtime": 1784981411.940877,
+    "ast_hash": "4f7a8a3a765f6f751d47568dc3bb913f",
+    "semantic_hash": "4f7a8a3a765f6f751d47568dc3bb913f"
+  },
+  "settings.gradle.kts": {
+    "mtime": 1784981412.0089357,
+    "ast_hash": "c9639364ae2a86af917a9fa75c24ae85",
+    "semantic_hash": "c9639364ae2a86af917a9fa75c24ae85"
+  }
+}

@@ -851,9 +851,10 @@ void IMU_Task(void *pvParameters) {
     last_ts_esp = current_ts_esp;
 
     // ── Pra-komputasi v_head_base ─────────────────────
-    const float OMEGA_X_LIM_DEG = 5.0f;  
-    float k_damp     = (fabsf(wx_corr_deg) > OMEGA_X_LIM_DEG) ? 0.5f : 1.0f;
-    float v_head_base = k_damp * (fabsf(wx_corr_deg) * DEG2RAD_F) * cosf(theta * DEG2RAD_F);
+    // ponytail: k_damp dihapus — formula fisik murni: v_apparent = ω_rad × cos(θ).
+    // Safety net over-kompensasi sudah ada di Android: isHeadRotating(45°/s) + 500ms cooldown.
+    // k_damp=0.5 sebelumnya menciptakan celah false velocity di zona [5,45°/s].
+    float v_head_base = (fabsf(wx_corr_deg) * DEG2RAD_F) * cosf(theta * DEG2RAD_F);
 
     // ── Rate-limit UDP send ──
     static uint8_t imu_send_tick = 0;

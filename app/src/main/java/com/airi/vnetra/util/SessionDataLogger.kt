@@ -109,6 +109,31 @@ class SessionDataLogger(context: Context) {
         }
     }
 
+    /**
+     * Menulis baris EVENT ke CSV yang sama untuk menandai Ground Truth saat pengujian
+     * Confusion Matrix. Dipanggil oleh penguji via tombol UI sebelum tiap trial.
+     *
+     * Format baris: EVENT,<timestamp_ms>,<elapsed_s>,GROUND_TRUTH,<label>
+     * Contoh:       EVENT,1723123456789,42,GROUND_TRUTH,Jam 12
+     *
+     * Notebook Python akan memisahkan baris EVENT dari baris data normal, lalu
+     * mencocokkan label ground truth dengan alert_text dari frame berikutnya
+     * untuk membangun confusion matrix secara otomatis.
+     */
+    fun logTestMarker(groundTruthLabel: String) {
+        if (!headerWritten) writeHeader()
+        try {
+            val now = System.currentTimeMillis()
+            val elapsed = (now - sessionStartMs) / 1000
+            val markerRow = "EVENT,$now,$elapsed,GROUND_TRUTH,\"$groundTruthLabel\""
+            csvWriter?.append(markerRow)?.append("\n")
+            csvWriter?.flush() // Flush langsung agar marker tidak hilang
+            Log.i(TAG, "Test marker logged: $groundTruthLabel at t=${elapsed}s")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write test marker", e)
+        }
+    }
+
     private fun writeHeader() {
         val header = "timestamp_ms,elapsed_s,d_obj_mm," +
             "v_raw_mmps,v_avg_mmps," +

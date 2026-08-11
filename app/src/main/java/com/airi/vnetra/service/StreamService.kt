@@ -245,6 +245,15 @@ class StreamService : Service() {
     }
 
     /** Menghentikan koneksi stream, websocket, UDP, dan membebaskan resource (WakeLock/WifiLock). */
+    
+    /**
+     * Meneruskan pencatatan Ground Truth Marker dari UI ke SessionDataLogger.
+     */
+    fun logTestMarker(label: String) {
+        if (::sessionDataLogger.isInitialized) {
+            sessionDataLogger.logTestMarker(label)
+        }
+    }
 
     fun stopStreamAndRelease() {
         if (::sessionDataLogger.isInitialized) {
@@ -445,7 +454,7 @@ class StreamService : Service() {
         }
     }
 
-    /** Membuka DatagramSocket UDP pada port 8080 untuk menerima paket IMU dan ToF latensi rendah. */
+    /** Membuka DatagramSocket UDP untuk menerima paket IMU dan ToF latensi rendah. */
     private fun startUdpReceiver() {
         udpReceiverJob?.cancel()
         runCatching { activeUdpSocket?.close() }
@@ -453,15 +462,15 @@ class StreamService : Service() {
 
         udpReceiverJob = serviceScope.launch(Dispatchers.IO) {
             val socket = try {
-                java.net.DatagramSocket(8080).apply {
+                java.net.DatagramSocket(VNetraConfig.UDP_PORT).apply {
                     reuseAddress = true
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Gagal menginisialisasi DatagramSocket pada port 8080: ${e.message}")
+                Log.e(TAG, "Gagal menginisialisasi DatagramSocket pada port ${VNetraConfig.UDP_PORT}: ${e.message}")
                 return@launch
             }
             activeUdpSocket = socket
-            Log.d(TAG, "UDP Receiver started on port 8080")
+            Log.d(TAG, "UDP Receiver started on port ${VNetraConfig.UDP_PORT}")
 
             val buffer = ByteArray(256)
             val packet = java.net.DatagramPacket(buffer, buffer.size)
