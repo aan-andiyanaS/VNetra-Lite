@@ -224,10 +224,9 @@ class NavigationCoordinator {
                     val tR = perceptionReactionTimeSec
                     val vAvg = emaApproachVelocityMmps
 
-                    // 1. SSD_raw = v_avg * (t_R + t_step) + 0.5 * |a_lin| * t_step^2
-                    // Menambahkan |a_lin| karena pergerakan kuat (momentum) harus MENINGKATKAN jarak pengereman, bukan menguranginya.
-                    val ssdRaw = vAvg * (tR + tStep) + (0.5f * aLin * (tStep * tStep))
-                    // SSD = max(0, SSD_raw) untuk berjaga-jaga dari nilai negatif
+                    // 1. SSD_raw = v_avg * (t_R + t_step) - 0.5 * |a_lin| * t_step^2
+                    val ssdRaw = vAvg * (tR + tStep) - (0.5f * aLin * (tStep * tStep))
+                    // SSD = max(0, SSD_raw) untuk mencegah nilai negatif akibat akselerasi tinggi
                     val ssd = kotlin.math.max(0f, ssdRaw)
 
                     // 2. Normalisasi Rasio (x)
