@@ -376,7 +376,7 @@ flowchart TB
         TOF["VL53L5CX<br/>Sensor Jarak ToF 8×8<br/>(I2C addr: 0x52)"]
         IMU["MPU6050<br/>Akselerometer + Giroskop<br/>(I2C addr: 0x68)"]
     end
-
+ 
     subgraph OUTPUT ["Output"]
         BUZZ["Buzzer Aktif 3.3V<br/>(GPIO13)"]
     end

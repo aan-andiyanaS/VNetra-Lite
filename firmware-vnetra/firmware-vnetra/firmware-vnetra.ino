@@ -616,6 +616,7 @@ class CommandCallbacks : public BLECharacteristicCallbacks {
 // ======== INIT BLE ========
 void initBLE() {
     BLEDevice::init("ESP32S3-WiFi-Config");
+    BLEDevice::setMTU(512); // PERBAIKAN: Mencegah password panjang terpotong batas MTU default (20 bytes)
     pServer = BLEDevice::createServer();
     pServer->setCallbacks(new ServerCallbacks());
 

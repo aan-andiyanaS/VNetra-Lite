@@ -84,9 +84,9 @@ class StreamService : Service() {
         private const val RECONNECT_BASE_MS = 1_000L
         private const val RECONNECT_MAX_MS  = 8_000L
 
-        // Constants for Latency Mocking/Estimation (ms)
-        private const val LATENCY_HW_PING = 15L
-        private const val LATENCY_ALGO_PING = 5L // Fast geometric algorithm
+        // Latency constants — hanya ALGO yang masih dikonstantakan karena murni CPU-bound
+        // dan variasinya sangat kecil (<1ms). HW latency diukur nyata di startUdpReceiver().
+        private const val LATENCY_ALGO_PING = 5L // Fast geometric algorithm (~2-8ms)
 
         const val EXTRA_IP    = VNetraConfig.KEY_ESP32_IP
         const val ACTION_STOP     = "com.airi.vnetra.ACTION_STOP"
@@ -128,6 +128,17 @@ class StreamService : Service() {
     @Volatile private var dynamicTtsLatency = 0L
     @Volatile private var currentNetLatencyMs = 5L
     @Volatile private var currentBtLatencyMs = 0L
+
+    /**
+     * Latensi hardware yang DIUKUR NYATA via System.nanoTime() di setiap iterasi
+     * socket.receive() di startUdpReceiver(). Mencerminkan waktu tunggu DMA + transfer USB-UART
+     * yang bervariasi per frame, bukan asumsi tetap.
+     * Inisialisasi ke 15L sebagai fallback selama ~500ms pertama sebelum paket pertama tiba.
+     */
+    @Volatile private var measuredHwLatencyMs: Long = 15L
+
+    /** Paket hilang pada siklus IMU terakhir (per-frame). Di-reset ke 0 setiap frame tanpa loss. */
+    @Volatile private var packetLossThisFrame: Int = 0
 
     private var lastDataReceivedTime        = 0L
 
@@ -478,7 +489,10 @@ class StreamService : Service() {
             try {
                 while (isActive && !stopped) {
                     packet.length = buffer.size
+                    // Ukur latensi HW nyata: waktu blokir hingga paket pertama tiba
+                    val hwStart = System.nanoTime()
                     socket.receive(packet)
+                    measuredHwLatencyMs = ((System.nanoTime() - hwStart) / 1_000_000L).coerceIn(1L, 200L)
                     if (stopped) break
 
                     lastDataReceivedTime = System.currentTimeMillis()
@@ -683,7 +697,11 @@ class StreamService : Service() {
                 
                 val seqNum = buffer.getInt(36).toUInt().toLong()
                 if (lastPacketSeqNum != -1L && seqNum > lastPacketSeqNum + 1) {
-                    totalPacketLoss += (seqNum - lastPacketSeqNum - 1).toInt()
+                    val lostNow = (seqNum - lastPacketSeqNum - 1).toInt()
+                    totalPacketLoss += lostNow
+                    packetLossThisFrame = lostNow  // catat untuk frame CSV ini
+                } else {
+                    packetLossThisFrame = 0         // tidak ada loss di frame ini
                 }
                 lastPacketSeqNum = seqNum
 
@@ -766,7 +784,7 @@ class StreamService : Service() {
                 currentBtLatencyMs = if (isBluetoothHeadsetConnected) 150L else 0L
 
                 if (_connectionState.value == ConnectionState.CONNECTED) {
-                    val hw = LATENCY_HW_PING
+                    val hw = measuredHwLatencyMs
                     val net = currentNetLatencyMs
                     val algo = LATENCY_ALGO_PING
                     val tts = dynamicTtsLatency
@@ -837,25 +855,23 @@ class StreamService : Service() {
             if (_connectionState.value == ConnectionState.CONNECTED &&
                 ::sessionDataLogger.isInitialized
             ) {
-                // momentumBufferMm = 0.5 * (accel m/s^2 * 1000) * STEP_DURATION_SEC^2
-                // Selaras dengan NavigationCoordinator formula — satu source di VNetraConfig.
-                val accelMmps2 = (imuSnap?.getOrElse(5) { 0f } ?: 0f) * 1000f
-                val mBufferLogged = 0.5f * accelMmps2 * (VNetraConfig.STEP_DURATION_SEC * VNetraConfig.STEP_DURATION_SEC)
                 val sessionFrame = SessionFrame(
-                    timestampMs    = System.currentTimeMillis(),
-                    obstacleDistanceMm         = obstacleDistanceMm,
-                    rawApproachVelocityMmps       = physics.rawApproachVelocityMmps,
-                    emaApproachVelocityMmps       = physics.emaApproachVelocityMmps,
-                    momentumBufferMm      = mBufferLogged,
+                    timestampMs             = System.currentTimeMillis(),
+                    obstacleDistanceMm      = obstacleDistanceMm,
+                    rawApproachVelocityMmps = physics.rawApproachVelocityMmps,
+                    emaApproachVelocityMmps = physics.emaApproachVelocityMmps,
+                    momentumBufferMm        = physics.momentumBufferMm,          // ← satu sumber, dari NavigationCoordinator
                     adaptiveThresholdMm     = physics.adaptiveThresholdMm,
-                    alertTriggered = obstacleAlert != null,
-                    alertText      = obstacleAlert ?: "",
-                    latencyHwMs    = LATENCY_HW_PING,
-                    latencyNetMs   = currentNetLatencyMs,
-                    latencyAlgoMs  = LATENCY_ALGO_PING,
-                    latencyTtsMs   = dynamicTtsLatency,
-                    latencyBtMs    = currentBtLatencyMs,
-                    packetLossCount = totalPacketLoss
+                    alertTriggered          = obstacleAlert != null,
+                    alertText               = obstacleAlert ?: "",
+                    latencyHwMs             = measuredHwLatencyMs,               // ← diukur nyata
+                    latencyNetMs            = currentNetLatencyMs,
+                    latencyAlgoMs           = LATENCY_ALGO_PING,
+                    latencyTtsMs            = dynamicTtsLatency,
+                    latencyBtMs             = currentBtLatencyMs,
+                    packetLossPerFrame      = packetLossThisFrame,               // ← per-frame
+                    totalPacketLoss         = totalPacketLoss,                   // ← kumulatif
+                    isHeadRotating          = physics.isHeadRotating              // ← dari ObstaclePhysics, tidak double-call
                 )
                 sessionDataLogger.record(sessionFrame)
             }

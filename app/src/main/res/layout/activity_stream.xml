@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -15,13 +15,18 @@
         android:minHeight="?attr/actionBarSize"
         android:background="#80000000"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
+        app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Container Spatial ToF (Aspect Ratio 4:3) -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/tofContainer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@+id/layoutImu"
+        app:layout_constraintBottom_toTopOf="@+id/layoutControls"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <!-- ToF 8x8 Grid Overlay (1:1 ratio, full width, centered) -->
         <GridLayout
@@ -105,7 +110,8 @@
         android:id="@+id/layoutImu"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
+        app:layout_constraintTop_toBottomOf="@+id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
         android:layout_margin="8dp"
         android:orientation="vertical">
 
@@ -202,7 +208,8 @@
         android:id="@+id/layoutLatencyMonitor"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
+        app:layout_constraintTop_toBottomOf="@+id/toolbar"
+        app:layout_constraintEnd_toEndOf="parent"
         android:layout_margin="8dp"
         android:orientation="vertical"
         android:background="#CC000000"
@@ -226,7 +233,9 @@
         android:id="@+id/layoutControls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         android:orientation="vertical"
         android:padding="16dp"
         android:background="#80000000">
@@ -272,84 +281,99 @@
         </LinearLayout>
 
         <!-- Ground Truth Marker Buttons (for Confusion Matrix Testing) -->
-        <HorizontalScrollView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:scrollbars="none"
+            android:orientation="vertical"
             android:layout_marginBottom="8dp">
-            
+
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:weightSum="3"
                 android:gravity="center">
 
                 <Button
                     android:id="@+id/btnGt10"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Jam 10"
                     android:textSize="10sp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_marginEnd="2dp"
                     style="?attr/materialButtonOutlinedStyle"
                     app:strokeColor="#FFFFFF"
                     android:textColor="#FFFFFF" />
 
                 <Button
                     android:id="@+id/btnGt11"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Jam 11"
                     android:textSize="10sp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_marginEnd="2dp"
                     style="?attr/materialButtonOutlinedStyle"
                     app:strokeColor="#FFFFFF"
                     android:textColor="#FFFFFF" />
 
                 <Button
                     android:id="@+id/btnGt12"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Jam 12"
                     android:textSize="10sp"
-                    android:layout_marginEnd="4dp"
                     style="?attr/materialButtonOutlinedStyle"
                     app:strokeColor="#FFFFFF"
                     android:textColor="#FFFFFF" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="3"
+                android:layout_marginTop="4dp"
+                android:gravity="center">
 
                 <Button
                     android:id="@+id/btnGt1"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Jam 1"
                     android:textSize="10sp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_marginEnd="2dp"
                     style="?attr/materialButtonOutlinedStyle"
                     app:strokeColor="#FFFFFF"
                     android:textColor="#FFFFFF" />
 
                 <Button
                     android:id="@+id/btnGt2"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Jam 2"
                     android:textSize="10sp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_marginEnd="2dp"
                     style="?attr/materialButtonOutlinedStyle"
                     app:strokeColor="#FFFFFF"
                     android:textColor="#FFFFFF" />
 
                 <Button
                     android:id="@+id/btnGtKosong"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Kosong"
                     android:textSize="10sp"
                     style="?attr/materialButtonOutlinedStyle"
-                    app:strokeColor="#FFFFFF"
-                    android:textColor="#FFFFFF" />
+                    app:strokeColor="#00E676"
+                    android:textColor="#00E676" />
             </LinearLayout>
-        </HorizontalScrollView>
+        </LinearLayout>
 
         <!-- Teks peringatan TTS terakhir (diperbarui setiap kali TTS berbicara) -->
         <TextView
@@ -422,4 +446,4 @@
 
     </LinearLayout>
 
-</FrameLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -2,6 +2,7 @@ package com.airi.vnetra.util
 
 import android.content.Context
 import android.util.Log
+import java.util.Locale
 
 /**
  * Data class untuk satu frame data sesi pengujian.
@@ -24,19 +25,25 @@ data class SessionFrame(
     val latencyAlgoMs: Long,
     val latencyTtsMs: Long,
     val latencyBtMs: Long,
-    val packetLossCount: Int
+    /** Paket hilang pada frame ini saja (bukan kumulatif). Digunakan untuk kalkulasi PDR per-interval. */
+    val packetLossPerFrame: Int,
+    /** Total paket hilang sejak awal sesi (kumulatif). Untuk verifikasi konsistensi. */
+    val totalPacketLoss: Int,
+    /** True jika kepala pengguna berputar melebihi threshold saat frame ini direkam. Digunakan untuk analisis IMU False Positive Gate. */
+    val isHeadRotating: Boolean
 ) {
     val latencyTotalMs: Long
         get() = latencyHwMs + latencyNetMs + latencyAlgoMs + latencyTtsMs + latencyBtMs
 
     fun toCsvRow(sessionStartMs: Long): String {
-        val elapsed = (timestampMs - sessionStartMs) / 1000
-        return "$timestampMs,$elapsed,$obstacleDistanceMm," +
-            "${"%.2f".format(rawApproachVelocityMmps)},${"%.2f".format(emaApproachVelocityMmps)}," +
-            "${"%.2f".format(momentumBufferMm)},$adaptiveThresholdMm," +
+        val elapsed = (timestampMs - sessionStartMs) / 1000.0
+        return "$timestampMs,${String.format(Locale.US, "%.3f", elapsed)},$obstacleDistanceMm," +
+            "${String.format(Locale.US, "%.2f", rawApproachVelocityMmps)},${String.format(Locale.US, "%.2f", emaApproachVelocityMmps)}," +
+            "${String.format(Locale.US, "%.2f", momentumBufferMm)},$adaptiveThresholdMm," +
             "${if (alertTriggered) 1 else 0},\"$alertText\"," +
             "$latencyHwMs,$latencyNetMs,$latencyAlgoMs," +
-            "$latencyTtsMs,$latencyBtMs,$latencyTotalMs,$packetLossCount"
+            "$latencyTtsMs,$latencyBtMs,$latencyTotalMs," +
+            "$packetLossPerFrame,$totalPacketLoss,${if (isHeadRotating) 1 else 0}"
     }
 }
 
@@ -124,27 +131,29 @@ class SessionDataLogger(context: Context) {
         if (!headerWritten) writeHeader()
         try {
             val now = System.currentTimeMillis()
-            val elapsed = (now - sessionStartMs) / 1000
-            val markerRow = "EVENT,$now,$elapsed,GROUND_TRUTH,\"$groundTruthLabel\""
+            val elapsed = (now - sessionStartMs) / 1000.0
+            val markerRow = "EVENT,$now,${String.format(Locale.US, "%.3f", elapsed)},GROUND_TRUTH,\"$groundTruthLabel\""
             csvWriter?.append(markerRow)?.append("\n")
             csvWriter?.flush() // Flush langsung agar marker tidak hilang
-            Log.i(TAG, "Test marker logged: $groundTruthLabel at t=${elapsed}s")
+            Log.i(TAG, "Test marker logged: $groundTruthLabel at t=${String.format(Locale.US, "%.3f", elapsed)}s")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write test marker", e)
         }
     }
 
     private fun writeHeader() {
+        // 18 kolom: 9 formula + 2 alert + 6 latensi + 3 jaringan/IMU
         val header = "timestamp_ms,elapsed_s,d_obj_mm," +
             "v_raw_mmps,v_avg_mmps," +
             "m_buffer_mm,threshold_T_mm," +
             "alert_triggered,alert_text," +
             "latency_hw_ms,latency_net_ms,latency_algo_ms," +
-            "latency_tts_ms,latency_bt_ms,latency_total_ms,packet_loss_count"
+            "latency_tts_ms,latency_bt_ms,latency_total_ms," +
+            "packet_loss_frame,packet_loss_cumulative,is_head_rotating"
         try {
             csvWriter?.append(header)?.append("\n")
             headerWritten = true
-            Log.i(TAG, "CSV header written")
+            Log.i(TAG, "CSV header written (18 columns)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write header", e)
         }

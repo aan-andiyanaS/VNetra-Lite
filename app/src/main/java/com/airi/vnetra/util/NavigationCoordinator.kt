@@ -98,8 +98,14 @@ class NavigationCoordinator {
         val rawApproachVelocityMmps: Float,        // Kecepatan pendekatan sebelum EWMA (per-frame, lebih noisy)
         val emaApproachVelocityMmps: Float,        // Kecepatan pendekatan setelah EWMA (lebih stabil)
         val adaptiveThresholdMm: Int,
+        /** Braking distance yang dihitung pada frame ini: 0.5 * |a_lin| * t_step^2.
+         *  Di-expose agar StreamService tidak perlu menghitung ulang untuk logging CSV. */
+        val momentumBufferMm: Float,
         val isAlertPermitted: Boolean,
-        val isSameSemanticState: Boolean
+        val isSameSemanticState: Boolean,
+        /** Status rotasi kepala saat frame ini — di-expose agar StreamService tidak perlu memanggil
+         *  isHeadRotating() ulang untuk logging CSV (eliminasi double-call pure function). */
+        val isHeadRotating: Boolean
     )
 
     // --- Obstacle Memory (Semantic State) ---
@@ -166,6 +172,8 @@ class NavigationCoordinator {
 
         var emaApproachVelocityMmps = 0f
         var adaptiveThresholdMm = baseWarningDistanceMm
+        // braking distance dari formula SSD — diisi di blok isConverged, 0f sebagai fallback awal
+        var calculatedMomentumBufferMm = 0f
 
         if (imuData != null && imuData.size >= 9) {
             val tsEsp = imuData[6]
@@ -228,6 +236,10 @@ class NavigationCoordinator {
                     val ssdRaw = vAvg * (tR + tStep) - (0.5f * aLin * (tStep * tStep))
                     // SSD = max(0, SSD_raw) untuk mencegah nilai negatif akibat akselerasi tinggi
                     val ssd = kotlin.math.max(0f, ssdRaw)
+
+                    // Simpan momentumBufferMm = bagian braking distance dari formula SSD
+                    // agar bisa di-expose ke ObstaclePhysics tanpa menghitung ulang di StreamService.
+                    calculatedMomentumBufferMm = 0.5f * aLin * (tStep * tStep)
 
                     // 2. Normalisasi Rasio (x)
                     val maxThreshold = VNetraConfig.MAX_THRESHOLD_MM.toFloat()
@@ -301,7 +313,7 @@ class NavigationCoordinator {
                                   && (currentZone >= lastAlertZone)
                                   && !distanceDecreasedSignificantly
 
-        return ObstaclePhysics(lastVRaw, emaApproachVelocityMmps, adaptiveThresholdMm, isAlertPermitted, isSameSemanticState)
+        return ObstaclePhysics(lastVRaw, emaApproachVelocityMmps, adaptiveThresholdMm, calculatedMomentumBufferMm, isAlertPermitted, isSameSemanticState, isHeadRotatingNow)
     }
 
     fun resetPhysics() {
